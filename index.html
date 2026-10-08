@@ -56,11 +56,9 @@
     </div>
 
     <script>
-        // TU GIST FIJO
+        // TUS CREDENCIALES CONFIGURADAS
         const GIST_ID = "21e7f4922bfa12a3ef96c0ab4a772cbc";
-        
-        // PEGA AQUÍ TU TOKEN DE GITHUB CLASSIC (Con permisos de 'gist')
-        const GITHUB_TOKEN = "TU_GITHUB_TOKEN_AQUI"; 
+        const GITHUB_TOKEN = "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"; 
 
         const urlParams = new URLSearchParams(window.location.search);
         const modoResponder = urlParams.get('responder') === 'true';
@@ -110,7 +108,6 @@
             };
 
             try {
-                // Actualiza tu Gist fijo existente borrando la anterior y poniendo la nueva
                 const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
                     method: 'PATCH',
                     headers: {
@@ -126,7 +123,7 @@
                     document.getElementById('pantalla-crear').classList.add('hidden');
                     document.getElementById('pantalla-enlace').classList.remove('hidden');
                 } else {
-                    alert('Error al actualizar el Gist. Revisa que tu Token sea correcto.');
+                    alert('Error al actualizar el Gist. Revisa que tu Token tenga permisos de "gist".');
                 }
             } catch (e) {
                 console.error(e);
@@ -157,7 +154,8 @@
                     if (contenido.respondido) {
                         document.getElementById('caja-respuesta').innerHTML = `<strong>Respuesta recibida:</strong> ${contenido.respuesta}`;
                     } else {
-                        document.getElementById('caja-respuesta').innerHTML = `<em>Aún no hay respuesta... Tu enlace es: <br><a href="${window.location.origin}${window.location.pathname}?responder=true" target="_blank">${window.location.origin}${window.location.pathname}?responder=true</a></em>`;
+                        const enlaceResponder = `${window.location.origin}${window.location.pathname}?responder=true`;
+                        document.getElementById('caja-respuesta').innerHTML = `<em>Aún no hay respuesta... Tu enlace para compartir es: <br><a href="${enlaceResponder}" target="_blank" style="color: #38bdf8;">${enlaceResponder}</a></em>`;
                     }
                 }
             } catch (e) {
