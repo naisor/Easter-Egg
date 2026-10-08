@@ -19,7 +19,7 @@
         <!-- Pantalla 1: Crear o Sobrescribir Pregunta -->
         <div id="pantalla-crear" class="hidden">
             <h2>Crea tu pregunta 📝</h2>
-            <p style="font-size: 0.85rem; color: #94a3b8;">Esto reemplazará la pregunta anterior de forma automática.</p>
+            <p style="font-size: 0.85rem; color: #94a3b8;">Esto reemplazará cualquier pregunta anterior.</p>
             <input type="text" id="input-pregunta" placeholder="Ej: ¿Qué opinas de mí?" autocomplete="off">
             <button onclick="crearOReemplazarPregunta()">Crear / Actualizar Pregunta</button>
         </div>
@@ -35,7 +35,7 @@
         <!-- Pantalla 3: La otra persona responde -->
         <div id="pantalla-responder" class="hidden">
             <h2>Responde la pregunta 🤔</h2>
-            <p id="pregunta-texto" style="font-size: 1.1rem; color: #38bdf8;"></p>
+            <p id="pregunta-texto" style="font-size: 1.1rem; color: #38bdf8; Carga..."></p>
             <textarea id="input-respuesta" rows="3" placeholder="Escribe tu respuesta aquí..."></textarea>
             <button onclick="enviarRespuesta()">Enviar respuesta</button>
         </div>
@@ -43,7 +43,7 @@
         <!-- Pantalla 4: Éxito -->
         <div id="pantalla-exito" class="hidden">
             <h2>¡Enviado con éxito! 🎉</h2>
-            <p>Tu respuesta ha sido guardada.</p>
+            <p>Tu respuesta ha sido guardada para Naisor.</p>
         </div>
 
         <!-- Pantalla 5: Ver la respuesta -->
@@ -56,16 +56,17 @@
     </div>
 
     <script>
-        // Usamos un identificador único fijo basado en tu Gist anterior para que tus datos fluyan siempre al mismo almacenamiento JSON
-        const STORAGE_KEY = "pregunta_activa_naisor_21e7f";
+        // Usamos una API en la nube pública y gratuita para sincronizar la pregunta entre dispositivos al instante
+        const BIN_ID = "65e9b817ef36d10f82d22f6a"; // ID único persistente en la nube
+        const API_URL = `https://json.extendsclass.com/bin/${BIN_ID}`;
 
         const urlParams = new URLSearchParams(window.location.search);
         const modoResponder = urlParams.get('responder') === 'true';
 
-        function inicializar() {
+        async function inicializar() {
             if (modoResponder) {
                 document.getElementById('pantalla-responder').classList.remove('hidden');
-                cargarPreguntaParaResponder();
+                await cargarPreguntaParaResponder();
             } else {
                 verEstado();
             }
@@ -73,16 +74,19 @@
 
         async function cargarPreguntaParaResponder() {
             try {
-                const res = await fetch(`https://json.extendsclass.com/bin/65e9b817ef36d10f82d22f6a`); // Endpoint fijo de respaldo libre CORS
-                // Si prefieres almacenamiento local/nube directo:
-                const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{"pregunta": "No hay pregunta activa", "respondido": false}');
-                document.getElementById('pregunta-texto').innerText = data.pregunta;
+                const res = await fetch(API_URL);
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('pregunta-texto').innerText = data.pregunta || "No hay pregunta activa";
+                } else {
+                    document.getElementById('pregunta-texto').innerText = "¿Qué opinas de mí?";
+                }
             } catch (e) {
                 document.getElementById('pregunta-texto').innerText = "¿Qué opinas de mí?";
             }
         }
 
-        function crearOReemplazarPregunta() {
+        async function crearOReemplazarPregunta() {
             const pregunta = document.getElementById('input-pregunta').value.trim();
             if (!pregunta) return alert('Escribe una pregunta');
 
@@ -92,56 +96,93 @@
                 respondido: false
             };
 
-            // Guardamos de forma persistente y limpia
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(payloadJson));
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payloadJson)
+                });
 
-            // Como estamos usando Vercel + un almacenamiento sincronizado, generamos el enlace limpio
-            const enlace = `${window.location.origin}${window.location.pathname}?responder=true`;
-            document.getElementById('texto-enlace').innerText = enlace;
-            document.getElementById('pantalla-crear').classList.add('hidden');
-            document.getElementById('pantalla-enlace').classList.remove('hidden');
+                if (res.ok) {
+                    const enlace = `${window.location.origin}${window.location.pathname}?responder=true`;
+                    document.getElementById('texto-enlace').innerText = enlace;
+                    document.getElementById('pantalla-crear').classList.add('hidden');
+                    document.getElementById('pantalla-enlace').classList.remove('hidden');
+                } else {
+                    alert('Error al guardar la pregunta en la nube.');
+                }
+            } catch (e) {
+                alert('Error de red.');
+            }
         }
 
-        function verEstado() {
-            const dataStr = localStorage.getItem(STORAGE_KEY);
-            if (!dataStr) {
+        async function verEstado() {
+            try {
+                const res = await fetch(API_URL);
+                if (!res.ok) {
+                    document.getElementById('pantalla-crear').classList.remove('hidden');
+                    return;
+                }
+
+                const contenido = await res.json();
+                if (!contenido || !contenido.pregunta) {
+                    document.getElementById('pantalla-crear').classList.remove('hidden');
+                    return;
+                }
+
+                document.getElementById('pantalla-crear').classList.add('hidden');
+                document.getElementById('pantalla-enlace').classList.add('hidden');
+                document.getElementById('pantalla-resultado').classList.remove('hidden');
+
+                document.getElementById('pregunta-mostrada').innerHTML = `<strong>Tu pregunta:</strong> ${contenido.pregunta}`;
+                
+                if (contenido.respondido) {
+                    document.getElementById('caja-respuesta').innerHTML = `<strong>Respuesta recibida:</strong> ${contenido.respuesta}`;
+                } else {
+                    const enlaceResponder = `${window.location.origin}${window.location.pathname}?responder=true`;
+                    document.getElementById('caja-respuesta').innerHTML = `<em>Aún no hay respuesta... Tu enlace para compartir es: <br><a href="${enlaceResponder}" target="_blank" style="color: #38bdf8;">${enlaceResponder}</a></em>`;
+                }
+            } catch (e) {
                 document.getElementById('pantalla-crear').classList.remove('hidden');
-                return;
-            }
-
-            const contenido = JSON.parse(dataStr);
-            document.getElementById('pantalla-crear').classList.add('hidden');
-            document.getElementById('pantalla-enlace').classList.add('hidden');
-            document.getElementById('pantalla-resultado').classList.remove('hidden');
-
-            document.getElementById('pregunta-mostrada').innerHTML = `<strong>Tu pregunta:</strong> ${contenido.pregunta}`;
-            
-            if (contenido.respondido) {
-                document.getElementById('caja-respuesta').innerHTML = `<strong>Respuesta recibida:</strong> ${contenido.respuesta}`;
-            } else {
-                const enlaceResponder = `${window.location.origin}${window.location.pathname}?responder=true`;
-                document.getElementById('caja-respuesta').innerHTML = `<em>Aún no hay respuesta... Tu enlace para compartir es: <br><a href="${enlaceResponder}" target="_blank" style="color: #38bdf8;">${enlaceResponder}</a></em>`;
             }
         }
 
-        function enviarRespuesta() {
+        async function enviarRespuesta() {
             const respuesta = document.getElementById('input-respuesta').value.trim();
             if (!respuesta) return alert('Escribe una respuesta');
 
-            const dataStr = localStorage.getItem(STORAGE_KEY) || '{"pregunta": "Pregunta", "respondido": false}';
-            const contenido = JSON.parse(dataStr);
+            try {
+                const resGet = await fetch(API_URL);
+                let contenido = resGet.ok ? await resGet.json() : {};
 
-            contenido.respuesta = respuesta;
-            contenido.respondido = true;
+                contenido.respuesta = respuesta;
+                contenido.respondido = true;
 
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(contenido));
+                const resPut = await fetch(API_URL, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(contenido)
+                });
 
-            document.getElementById('pantalla-responder').classList.add('hidden');
-            document.getElementById('pantalla-exito').classList.remove('hidden');
+                if (resPut.ok) {
+                    document.getElementById('pantalla-responder').classList.add('hidden');
+                    document.getElementById('pantalla-exito').classList.remove('hidden');
+                } else {
+                    alert('No se pudo enviar la respuesta.');
+                }
+            } catch (e) {
+                alert('Error al enviar.');
+            }
         }
 
-        function irACrearNueva() {
-            localStorage.removeItem(STORAGE_KEY);
+        async function irACrearNueva() {
+            // Limpia la nube para dejar listo otra pregunta
+            await fetch(API_URL, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pregunta: "", respuesta: "", respondido: false })
+            });
+
             document.getElementById('pantalla-resultado').classList.add('hidden');
             document.getElementById('pantalla-crear').classList.remove('hidden');
         }
