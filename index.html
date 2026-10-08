@@ -3,35 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pregunta Secreta Cloud</title>
+    <title>Mi Pregunta Secreta</title>
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .card { background: #1e293b; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.3); width: 100%; max-width: 400px; box-sizing: border-box; }
         input, textarea { width: 100%; padding: 0.75rem; margin: 0.5rem 0 1rem 0; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 0.5rem; box-sizing: border-box; }
         button { background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.5rem; cursor: pointer; width: 100%; font-weight: bold; }
         button:hover { background: #2563eb; }
-        .link-box { background: #0f172a; padding: 0.75rem; border-radius: 0.5rem; word-break: break-all; font-family: monospace; font-size: 0.85rem; color: #38bdf8; margin: 1rem 0; max-height: 100px; overflow-y: auto; }
+        .link-box { background: #0f172a; padding: 0.75rem; border-radius: 0.5rem; word-break: break-all; font-family: monospace; font-size: 0.85rem; color: #38bdf8; margin: 1rem 0; }
         .hidden { display: none; }
     </style>
 </head>
 <body>
     <div class="card">
-        <!-- Pantalla 1: Crear Pregunta -->
+        <!-- Pantalla 1: Crear o Sobrescribir Pregunta -->
         <div id="pantalla-crear" class="hidden">
             <h2>Crea tu pregunta 📝</h2>
-            <input type="text" id="input-pregunta" placeholder="Ej: ¿Qué opinas de mí en una palabra?" autocomplete="off">
-            <button onclick="crearPregunta()">Generar Enlace</button>
+            <p style="font-size: 0.85rem; color: #94a3b8;">Esto sobrescribirá cualquier pregunta anterior.</p>
+            <input type="text" id="input-pregunta" placeholder="Ej: ¿Qué opinas de mí?" autocomplete="off">
+            <button onclick="crearOReemplazarPregunta()">Actualizar / Crear Pregunta</button>
         </div>
 
-        <!-- Pantalla 2: Enlace Generado -->
+        <!-- Pantalla 2: Enlace Listo -->
         <div id="pantalla-enlace" class="hidden">
             <h2>¡Enlace listo! 🚀</h2>
-            <p>Comparte este enlace con tus amigos:</p>
+            <p>Comparte este enlace para que te respondan:</p>
             <div class="link-box" id="texto-enlace"></div>
-            <button onclick="copiarEnlace()">Copiar Enlace</button>
+            <button onclick="verEstado()">Ver estado / Respuesta</button>
         </div>
 
-        <!-- Pantalla 3: Responder -->
+        <!-- Pantalla 3: La otra persona responde -->
         <div id="pantalla-responder" class="hidden">
             <h2>Responde la pregunta 🤔</h2>
             <p id="pregunta-texto" style="font-size: 1.1rem; color: #38bdf8;"></p>
@@ -39,85 +40,179 @@
             <button onclick="enviarRespuesta()">Enviar respuesta</button>
         </div>
 
-        <!-- Pantalla 4: Ver Respuesta (Dueño) -->
+        <!-- Pantalla 4: Éxito -->
+        <div id="pantalla-exito" class="hidden">
+            <h2>¡Enviado con éxito! 🎉</h2>
+            <p>Tu respuesta ha sido guardada.</p>
+        </div>
+
+        <!-- Pantalla 5: Ver la respuesta en tu Gist -->
         <div id="pantalla-resultado" class="hidden">
-            <h2>Respuesta Recibida 🎯</h2>
+            <h2>Estado de la pregunta 🎯</h2>
             <p id="pregunta-mostrada"></p>
             <div class="link-box" id="caja-respuesta" style="color: #4ade80;"></div>
-            <button onclick="location.href = window.location.pathname">Crear otra pregunta</button>
+            <button onclick="irACrearNueva()">Crear una nueva pregunta (Reemplazar)</button>
         </div>
     </div>
 
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const dataParam = urlParams.get('d');
-        const respParam = urlParams.get('r');
+        // TU GIST FIJO
+        const GIST_ID = "21e7f4922bfa12a3ef96c0ab4a772cbc";
+        
+        // PEGA AQUÍ TU TOKEN DE GITHUB CLASSIC (Con permisos de 'gist')
+        const GITHUB_TOKEN = "TU_GITHUB_TOKEN_AQUI"; 
 
-        function iniciar() {
-            if (respParam) {
-                // Alguien ya respondió y regresó el enlace al creador
-                document.getElementById('pantalla-resultado').classList.remove('hidden');
-                try {
-                    const datos = JSON.parse(atob(respParam));
-                    document.getElementById('pregunta-mostrada').innerHTML = `<strong>Pregunta:</strong> ${datos.p}`;
-                    document.getElementById('caja-respuesta').innerText = datos.r;
-                } catch(e) {
-                    document.getElementById('caja-respuesta').innerText = "Error al leer la respuesta.";
-                }
-            } else if (dataParam) {
-                // Alguien abrió el enlace para responder
+        const urlParams = new URLSearchParams(window.location.search);
+        const modoResponder = urlParams.get('responder') === 'true';
+
+        function inicializar() {
+            if (modoResponder) {
                 document.getElementById('pantalla-responder').classList.remove('hidden');
-                try {
-                    const preguntaDecodificada = decodeURIComponent(escape(window.atob(dataParam)));
-                    document.getElementById('pregunta-texto').innerText = preguntaDecodificada;
-                } catch(e) {
-                    document.getElementById('pregunta-texto').innerText = "Pregunta no válida.";
-                }
+                cargarPreguntaParaResponder();
             } else {
-                // Pantalla principal para crear
-                document.getElementById('pantalla-crear').classList.remove('hidden');
+                verEstado();
             }
         }
 
-        function crearPregunta() {
+        async function cargarPreguntaParaResponder() {
+            try {
+                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const archivo = data.files['pregunta_activa.json'] || Object.values(data.files)[0];
+                    const contenido = JSON.parse(archivo.content);
+                    document.getElementById('pregunta-texto').innerText = contenido.pregunta;
+                } else {
+                    alert('No se pudo cargar la pregunta.');
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function crearOReemplazarPregunta() {
             const pregunta = document.getElementById('input-pregunta').value.trim();
             if (!pregunta) return alert('Escribe una pregunta');
 
-            // Codificar la pregunta de forma segura para la URL
-            const preguntaBase64 = btoa(unescape(encodeURIComponent(pregunta)));
-            const enlace = `${window.location.origin}${window.location.pathname}?d=${preguntaBase64}`;
+            const payloadJson = {
+                pregunta: pregunta,
+                respuesta: "",
+                respondido: false
+            };
 
-            document.getElementById('texto-enlace').innerText = enlace;
-            document.getElementById('pantalla-crear').classList.add('hidden');
-            document.getElementById('pantalla-enlace').classList.remove('hidden');
+            const bodyData = {
+                description: "Pregunta Secreta Activa",
+                files: {
+                    "pregunta_activa.json": {
+                        content: JSON.stringify(payloadJson, null, 2)
+                    }
+                }
+            };
+
+            try {
+                // Actualiza tu Gist fijo existente borrando la anterior y poniendo la nueva
+                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `token ${GITHUB_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(bodyData)
+                });
+
+                if (res.ok) {
+                    const enlace = `${window.location.origin}${window.location.pathname}?responder=true`;
+                    document.getElementById('texto-enlace').innerText = enlace;
+                    document.getElementById('pantalla-crear').classList.add('hidden');
+                    document.getElementById('pantalla-enlace').classList.remove('hidden');
+                } else {
+                    alert('Error al actualizar el Gist. Revisa que tu Token sea correcto.');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Error de red.');
+            }
         }
 
-        function copiarEnlace() {
-            const texto = document.getElementById('texto-enlace').innerText;
-            navigator.clipboard.writeText(texto);
-            alert('¡Enlace copiado al portapapeles!');
+        async function verEstado() {
+            try {
+                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const archivo = data.files['pregunta_activa.json'] || Object.values(data.files)[0];
+                    
+                    if (!archivo) {
+                        irACrearNueva();
+                        return;
+                    }
+
+                    const contenido = JSON.parse(archivo.content);
+
+                    document.getElementById('pantalla-crear').classList.add('hidden');
+                    document.getElementById('pantalla-enlace').classList.add('hidden');
+                    document.getElementById('pantalla-resultado').classList.remove('hidden');
+
+                    document.getElementById('pregunta-mostrada').innerHTML = `<strong>Tu pregunta:</strong> ${contenido.pregunta}`;
+                    
+                    if (contenido.respondido) {
+                        document.getElementById('caja-respuesta').innerHTML = `<strong>Respuesta recibida:</strong> ${contenido.respuesta}`;
+                    } else {
+                        document.getElementById('caja-respuesta').innerHTML = `<em>Aún no hay respuesta... Tu enlace es: <br><a href="${window.location.origin}${window.location.pathname}?responder=true" target="_blank">${window.location.origin}${window.location.pathname}?responder=true</a></em>`;
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
         }
 
-        function enviarRespuesta() {
+        async function enviarRespuesta() {
             const respuesta = document.getElementById('input-respuesta').value.trim();
             if (!respuesta) return alert('Escribe una respuesta');
 
-            const preguntaActual = document.getElementById('pregunta-texto').innerText;
-            
-            // Empaquetar pregunta y respuesta en un JSON cifrado para enviarlo de vuelta al creador
-            const paquete = JSON.stringify({ p: preguntaActual, r: respuesta });
-            const paqueteBase64 = btoa(unescape(encodeURIComponent(paquete)));
-            
-            // Redirige al usuario a una vista donde el creador podrá ver la respuesta
-            const enlaceRetorno = `${window.location.origin}${window.location.pathname}?r=${paqueteBase64}`;
-            
-            // Copiar el enlace de respuesta para que se lo mande al creador o abrirlo directamente
-            prompt("¡Respuesta guardada! Copia este enlace y envíaselo a quien te hizo la pregunta:", enlaceRetorno);
-            alert('¡Gracias por responder!');
-            window.location.href = window.location.pathname;
+            try {
+                const resGet = await fetch(`https://api.github.com/gists/${GIST_ID}`);
+                if (resGet.ok) {
+                    const data = await resGet.json();
+                    const archivoKey = Object.keys(data.files)[0];
+                    const contenido = JSON.parse(data.files[archivoKey].content);
+
+                    contenido.respuesta = respuesta;
+                    contenido.respondido = true;
+
+                    const resPatch = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `token ${GITHUB_TOKEN}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            files: {
+                                [archivoKey]: {
+                                    content: JSON.stringify(contenido, null, 2)
+                                }
+                            }
+                        })
+                    });
+
+                    if (resPatch.ok) {
+                        document.getElementById('pantalla-responder').classList.add('hidden');
+                        document.getElementById('pantalla-exito').classList.remove('hidden');
+                    } else {
+                        alert('No se pudo enviar la respuesta.');
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Error al enviar.');
+            }
         }
 
-        iniciar();
+        function irACrearNueva() {
+            document.getElementById('pantalla-resultado').classList.add('hidden');
+            document.getElementById('pantalla-crear').classList.remove('hidden');
+        }
+
+        inicializar();
     </script>
 </body>
 </html>
