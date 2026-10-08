@@ -56,7 +56,6 @@
     </div>
 
     <script>
-        // TUS CREDENCIALES CONFIGURADAS
         const GIST_ID = "21e7f4922bfa12a3ef96c0ab4a772cbc";
         const GITHUB_TOKEN = "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"; 
 
@@ -112,7 +111,8 @@
                     method: 'PATCH',
                     headers: {
                         'Authorization': `token ${GITHUB_TOKEN}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/vnd.github.v3+json'
                     },
                     body: JSON.stringify(bodyData)
                 });
@@ -123,11 +123,12 @@
                     document.getElementById('pantalla-crear').classList.add('hidden');
                     document.getElementById('pantalla-enlace').classList.remove('hidden');
                 } else {
-                    alert('Error al actualizar el Gist. Revisa que tu Token tenga permisos de "gist".');
+                    const errorText = await res.text();
+                    alert(`Error GitHub (${res.status}): ${errorText}`);
                 }
             } catch (e) {
                 console.error(e);
-                alert('Error de red.');
+                alert('Error de red al conectar con GitHub.');
             }
         }
 
@@ -181,7 +182,8 @@
                         method: 'PATCH',
                         headers: {
                             'Authorization': `token ${GITHUB_TOKEN}`,
-                            'Content-Type': 'application/json'
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/vnd.github.v3+json'
                         },
                         body: JSON.stringify({
                             files: {
@@ -196,7 +198,8 @@
                         document.getElementById('pantalla-responder').classList.add('hidden');
                         document.getElementById('pantalla-exito').classList.remove('hidden');
                     } else {
-                        alert('No se pudo enviar la respuesta.');
+                        const errorText = await resPatch.text();
+                        alert(`Error GitHub (${resPatch.status}): ${errorText}`);
                     }
                 }
             } catch (e) {
