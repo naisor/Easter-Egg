@@ -16,85 +16,211 @@
 </head>
 <body>
     <div class="card">
-        <!-- Pantalla 1: Crear Pregunta -->
+        <!-- Pantalla 1: Crear o Sobrescribir Pregunta -->
         <div id="pantalla-crear" class="hidden">
             <h2>Crea tu pregunta 📝</h2>
-            <p style="font-size: 0.85rem; color: #94a3b8;">Escribe lo que quieras preguntar.</p>
+            <p style="font-size: 0.85rem; color: #94a3b8;">Se guardará directamente en tu Gist de GitHub.</p>
             <input type="text" id="input-pregunta" placeholder="Ej: ¿Qué opinas de mí?" autocomplete="off">
-            <button onclick="generarEnlace()">Generar Enlace</button>
+            <button onclick="crearOReemplazarPregunta()">Crear / Actualizar Pregunta</button>
         </div>
 
         <!-- Pantalla 2: Enlace Listo -->
         <div id="pantalla-enlace" class="hidden">
             <h2>¡Enlace listo! 🚀</h2>
-            <p>Comparte este enlace:</p>
+            <p>Comparte este enlace para que te respondan:</p>
             <div class="link-box" id="texto-enlace"></div>
-            <button onclick="location.reload()">Crear otra</button>
+            <button onclick="verEstado()">Ver estado / Respuesta</button>
         </div>
 
         <!-- Pantalla 3: La otra persona responde -->
         <div id="pantalla-responder" class="hidden">
             <h2>Responde la pregunta 🤔</h2>
-            <p id="pregunta-texto" style="font-size: 1.1rem; color: #38bdf8;"></p>
+            <p id="pregunta-texto" style="font-size: 1.1rem; color: #38bdf8;">Cargando...</p>
             <textarea id="input-respuesta" rows="3" placeholder="Escribe tu respuesta aquí..."></textarea>
-            <button onclick="enviarRespuestaURL()">Enviar respuesta</button>
+            <button onclick="enviarRespuesta()">Enviar respuesta</button>
         </div>
 
-        <!-- Pantalla 4: Éxito al responder -->
+        <!-- Pantalla 4: Éxito -->
         <div id="pantalla-exito" class="hidden">
             <h2>¡Enviado con éxito! 🎉</h2>
-            <p>Tu respuesta ha sido generada. Cópiala y envíasela a Naisor.</p>
-            <div class="link-box" id="enlace-respuesta-final"></div>
+            <p>Tu respuesta ha sido guardada en el Gist de Naisor.</p>
+        </div>
+
+        <!-- Pantalla 5: Ver la respuesta en tu Gist -->
+        <div id="pantalla-resultado" class="hidden">
+            <h2>Estado de la pregunta 🎯</h2>
+            <p id="pregunta-mostrada"></p>
+            <div class="link-box" id="caja-respuesta" style="color: #4ade80;">Cargando estado...</div>
+            <button onclick="irACrearNueva()">Crear una nueva pregunta (Reemplazar)</button>
         </div>
     </div>
 
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const qParam = urlParams.get('q');
-        const rParam = urlParams.get('r');
+        const GIST_ID = "21e7f4922bfa12a3ef96c0ab4a772cbc";
+        const GITHUB_TOKEN = "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"; 
 
-        function inicializar() {
-            if (rParam) {
-                // Si trae respuesta, muestra la pantalla de éxito con la respuesta ya lista para ti
-                document.getElementById('pantalla-exito').classList.remove('hidden');
-                let preguntaOriginal = qParam ? decodeURIComponent(escape(atob(qParam))) : "";
-                document.getElementById('enlace-respuesta-final').innerHTML = `<strong>Pregunta:</strong> ${preguntaOriginal}<br><br><strong style="color: #4ade80;">Respuesta:</strong> ${decodeURIComponent(escape(atob(rParam)))}`;
-            } else if (qParam) {
-                // Si solo trae la pregunta, muestra el formulario para que respondan
+        const urlParams = new URLSearchParams(window.location.search);
+        const modoResponder = urlParams.get('responder') === 'true';
+
+        async function inicializar() {
+            if (modoResponder) {
                 document.getElementById('pantalla-responder').classList.remove('hidden');
-                try {
-                    const decodificada = decodeURIComponent(escape(atob(qParam)));
-                    document.getElementById('pregunta-texto').innerText = decodificada;
-                } catch (e) {
-                    document.getElementById('pregunta-texto').innerText = qParam;
-                }
+                await cargarPreguntaParaResponder();
             } else {
-                // Si no hay parámetros, estás tú creando la pregunta
-                document.getElementById('pantalla-crear').classList.remove('hidden');
+                verEstado();
             }
         }
 
-        function generarEnlace() {
+        async function cargarPreguntaParaResponder() {
+            try {
+                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                    headers: { 'Accept': 'application/vnd.github.v3+json' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const archivo = data.files['pregunta_activa.json'] || Object.values(data.files)[0];
+                    const contenido = JSON.parse(archivo.content);
+                    document.getElementById('pregunta-texto').innerText = contenido.pregunta;
+                } else {
+                    document.getElementById('pregunta-texto').innerText = "¿Qué opinas de mí?";
+                }
+            } catch (e) {
+                document.getElementById('pregunta-texto').innerText = "¿Qué opinas de mí?";
+            }
+        }
+
+        async function crearOReemplazarPregunta() {
             const pregunta = document.getElementById('input-pregunta').value.trim();
             if (!pregunta) return alert('Escribe una pregunta');
 
-            const encoded = btoa(unescape(encodeURIComponent(pregunta)));
-            const enlace = `${window.location.origin}${window.location.pathname}?q=${encoded}`;
-            
-            document.getElementById('texto-enlace').innerText = enlace;
-            document.getElementById('pantalla-crear').classList.add('hidden');
-            document.getElementById('pantalla-enlace').classList.remove('hidden');
+            const payloadJson = {
+                pregunta: pregunta,
+                respuesta: "",
+                respondido: false
+            };
+
+            const bodyData = {
+                description: "Pregunta Secreta Activa de Naisor",
+                files: {
+                    "pregunta_activa.json": {
+                        content: JSON.stringify(payloadJson, null, 2)
+                    }
+                }
+            };
+
+            try {
+                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `token ${GITHUB_TOKEN}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/vnd.github.v3+json'
+                    },
+                    body: JSON.stringify(bodyData)
+                });
+
+                if (res.ok) {
+                    const enlace = `${window.location.origin}${window.location.pathname}?responder=true`;
+                    document.getElementById('texto-enlace').innerText = enlace;
+                    document.getElementById('pantalla-crear').classList.add('hidden');
+                    document.getElementById('pantalla-enlace').classList.remove('hidden');
+                } else {
+                    const err = await res.text();
+                    alert('Error al actualizar el Gist: ' + err);
+                }
+            } catch (e) {
+                alert('Error de red al conectar con GitHub.');
+            }
         }
 
-        function enviarRespuestaURL() {
+        async function verEstado() {
+            document.getElementById('pantalla-crear').classList.add('hidden');
+            document.getElementById('pantalla-enlace').classList.add('hidden');
+            document.getElementById('pantalla-resultado').classList.remove('hidden');
+
+            try {
+                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                    headers: { 'Accept': 'application/vnd.github.v3+json' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const archivo = data.files['pregunta_activa.json'] || Object.values(data.files)[0];
+                    
+                    if (!archivo) {
+                        irACrearNueva();
+                        return;
+                    }
+
+                    const contenido = JSON.parse(archivo.content);
+                    document.getElementById('pregunta-mostrada').innerHTML = `<strong>Tu pregunta:</strong> ${contenido.pregunta}`;
+                    
+                    if (contenido.respondido) {
+                        document.getElementById('caja-respuesta').innerHTML = `<strong>Respuesta recibida:</strong> ${contenido.respuesta}`;
+                    } else {
+                        const enlaceResponder = `${window.location.origin}${window.location.pathname}?responder=true`;
+                        document.getElementById('caja-respuesta').innerHTML = `<em>Aún no hay respuesta... Tu enlace para compartir es: <br><a href="${enlaceResponder}" target="_blank" style="color: #38bdf8;">${enlaceResponder}</a></em>`;
+                    }
+                } else {
+                    document.getElementById('caja-respuesta').innerText = "No se pudo cargar el estado del Gist.";
+                }
+            } catch (e) {
+                document.getElementById('caja-respuesta').innerText = "Error de red al consultar el Gist.";
+            }
+        }
+
+        async function enviarRespuesta() {
             const respuesta = document.getElementById('input-respuesta').value.trim();
             if (!respuesta) return alert('Escribe una respuesta');
 
-            const encodedResp = btoa(unescape(encodeURIComponent(respuesta)));
-            const enlaceFinal = `${window.location.origin}${window.location.pathname}?q=${qParam}&r=${encodedResp}`;
+            try {
+                const resGet = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                    headers: { 'Accept': 'application/vnd.github.v3+json' }
+                });
+                
+                if (resGet.ok) {
+                    const data = await resGet.json();
+                    const archivoKey = Object.keys(data.files)[0];
+                    let contenido = {};
+                    try {
+                        contenido = JSON.parse(data.files[archivoKey].content);
+                    } catch(err) {
+                        contenido = { pregunta: "¿Qué opinas de mí?" };
+                    }
 
-            // Redirige a una vista donde la otra persona solo copia el enlace con su respuesta de vuelta para ti
-            window.location.href = enlaceFinal;
+                    contenido.respuesta = respuesta;
+                    contenido.respondido = true;
+
+                    const resPatch = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `token ${GITHUB_TOKEN}`,
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/vnd.github.v3+json'
+                        },
+                        body: JSON.stringify({
+                            files: {
+                                [archivoKey]: {
+                                    content: JSON.stringify(contenido, null, 2)
+                                }
+                            }
+                        })
+                    });
+
+                    if (resPatch.ok) {
+                        document.getElementById('pantalla-responder').classList.add('hidden');
+                        document.getElementById('pantalla-exito').classList.remove('hidden');
+                    } else {
+                        alert('No se pudo enviar la respuesta al Gist.');
+                    }
+                }
+            } catch (e) {
+                alert('Error al enviar la respuesta.');
+            }
+        }
+
+        function irACrearNueva() {
+            document.getElementById('pantalla-resultado').classList.add('hidden');
+            document.getElementById('pantalla-crear').classList.remove('hidden');
         }
 
         inicializar();
