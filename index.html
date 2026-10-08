@@ -16,7 +16,7 @@
 </head>
 <body>
     <div class="card">
-        <div id="pantalla-crear">
+        <div id="pantalla-crear" class="hidden">
             <h2>Crea tu pregunta 📝</h2>
             <input type="text" id="input-pregunta" placeholder="Ej: ¿Qué opinas de mí en una palabra?" autocomplete="off">
             <button onclick="crearPregunta()">Generar Enlace</button>
@@ -47,6 +47,36 @@
         const urlParams = new URLSearchParams(window.location.search);
         const idPregunta = urlParams.get('id');
 
+        async function cargarDatos() {
+            if (!idPregunta) {
+                document.getElementById('pantalla-crear').classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/pregunta?id=${idPregunta}`);
+                const data = await res.json();
+
+                if (res.ok && !data.error) {
+                    if (data.respondido) {
+                        document.getElementById('pantalla-resultado').classList.remove('hidden');
+                        document.getElementById('titulo-resultado').innerText = "¡Ya respondieron! 🎉";
+                        document.getElementById('pregunta-mostrada').innerHTML = `<strong>Pregunta:</strong> ${data.pregunta}`;
+                        document.getElementById('caja-respuesta').innerText = data.respuesta;
+                    } else {
+                        document.getElementById('pantalla-responder').classList.remove('hidden');
+                        document.getElementById('pregunta-texto').innerText = data.pregunta;
+                    }
+                } else {
+                    alert('La pregunta no existe o expiró.');
+                    document.getElementById('pantalla-crear').classList.remove('hidden');
+                }
+            } catch (e) {
+                console.error(e);
+                document.getElementById('pantalla-crear').classList.remove('hidden');
+            }
+        }
+
         async function crearPregunta() {
             const pregunta = document.getElementById('input-pregunta').value;
             if (!pregunta) return alert('Escribe una pregunta');
@@ -59,7 +89,7 @@
             const data = await res.json();
 
             if (data.id) {
-                const enlace = `${window.location.origin}?id=${data.id}`;
+                const enlace = `${window.location.origin}${window.location.pathname}?id=${data.id}`;
                 document.getElementById('texto-enlace').innerText = enlace;
                 document.getElementById('pantalla-crear').classList.add('hidden');
                 document.getElementById('pantalla-enlace').classList.remove('hidden');
@@ -83,28 +113,7 @@
 
             if (data.success) {
                 alert('¡Respuesta enviada!');
-                window.location.href = window.location.origin + window.location.pathname + '?id=' + idPregunta;
-            }
-        }
-
-        async function cargarDatos() {
-            if (!idPregunta) return;
-
-            const res = await fetch(`/api/pregunta?id=${idPregunta}`);
-            const data = await res.json();
-
-            if (!data.error) {
-                document.getElementById('pantalla-crear').classList.add('hidden');
-                
-                if (data.respondido) {
-                    document.getElementById('pantalla-resultado').classList.remove('hidden');
-                    document.getElementById('titulo-resultado').innerText = "¡Ya respondieron! 🎉";
-                    document.getElementById('pregunta-mostrada').innerHTML = `<strong>Pregunta:</strong> ${data.pregunta}`;
-                    document.getElementById('caja-respuesta').innerText = data.respuesta;
-                } else {
-                    document.getElementById('pantalla-responder').classList.remove('hidden');
-                    document.getElementById('pregunta-texto').innerText = data.pregunta;
-                }
+                window.location.reload();
             }
         }
 
