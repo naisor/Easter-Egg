@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pregunta Secreta Cloud</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: #1e293b; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.3); width: 100%; max-width: 400px; box-sizing: border-box; }
+        input, textarea { width: 100%; padding: 0.75rem; margin: 0.5rem 0 1rem 0; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 0.5rem; box-sizing: border-box; }
+        button { background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.5rem; cursor: pointer; width: 100%; font-weight: bold; }
+        button:hover { background: #2563eb; }
+        .link-box { background: #0f172a; padding: 0.75rem; border-radius: 0.5rem; word-break: break-all; font-family: monospace; font-size: 0.9rem; color: #38bdf8; margin: 1rem 0; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div id="pantalla-crear">
+            <h2>Crea tu pregunta 📝</h2>
+            <input type="text" id="input-pregunta" placeholder="Ej: ¿Qué opinas de mí en una palabra?" autocomplete="off">
+            <button onclick="crearPregunta()">Generar Enlace</button>
+        </div>
+
+        <div id="pantalla-enlace" class="hidden">
+            <h2>¡Enlace listo! 🚀</h2>
+            <p>Comparte este enlace:</p>
+            <div class="link-box" id="texto-enlace"></div>
+            <button onclick="verEstado()">Ver respuestas / Estado</button>
+        </div>
+
+        <div id="pantalla-responder" class="hidden">
+            <h2>Responde la pregunta 🤔</h2>
+            <p id="pregunta-texto" style="font-size: 1.1rem; color: #38bdf8;"></p>
+            <textarea id="input-respuesta" rows="3" placeholder="Escribe tu respuesta aquí..."></textarea>
+            <button onclick="enviarRespuesta()">Enviar respuesta</button>
+        </div>
+
+        <div id="pantalla-resultado" class="hidden">
+            <h2 id="titulo-resultado">Estado 🎯</h2>
+            <p id="pregunta-mostrada"></p>
+            <div class="link-box" id="caja-respuesta" style="color: #4ade80;"></div>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const idPregunta = urlParams.get('id');
+
+        async function crearPregunta() {
+            const pregunta = document.getElementById('input-pregunta').value;
+            if (!pregunta) return alert('Escribe una pregunta');
+
+            const res = await fetch('/api/pregunta', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accion: 'crear', pregunta })
+            });
+            const data = await res.json();
+
+            if (data.id) {
+                const enlace = `${window.location.origin}?id=${data.id}`;
+                document.getElementById('texto-enlace').innerText = enlace;
+                document.getElementById('pantalla-crear').classList.add('hidden');
+                document.getElementById('pantalla-enlace').classList.remove('hidden');
+            }
+        }
+
+        async function verEstado() {
+            window.location.reload();
+        }
+
+        async function enviarRespuesta() {
+            const respuesta = document.getElementById('input-respuesta').value;
+            if (!respuesta) return alert('Escribe una respuesta');
+
+            const res = await fetch('/api/pregunta', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accion: 'responder', id: idPregunta, respuesta })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                alert('¡Respuesta enviada!');
+                window.location.href = window.location.origin + window.location.pathname + '?id=' + idPregunta;
+            }
+        }
+
+        // Cargar datos si hay un ID en la URL
+        async function cargarDatos() {
+            if (!idPregunta) return;
+
+            const res = await fetch(`/api/pregunta?id=${idPregunta}`);
+            const data = await res.json();
+
+            if (!data.error) {
+                document.getElementById('pantalla-crear').classList.add('hidden');
+                
+                if (data.respondido) {
+                    document.getElementById('pantalla-resultado').classList.remove('hidden');
+                    document.getElementById('titulo-resultado').innerText = "¡Ya respondieron! 🎉";
+                    document.getElementById('pregunta-mostrada').innerHTML = `<strong>Pregunta:</strong> ${data.pregunta}`;
+                    document.getElementById('caja-respuesta').innerText = data.respuesta;
+                } else {
+                    document.getElementById('pantalla-responder').classList.remove('hidden');
+                    document.getElementById('pregunta-texto').innerText = data.pregunta;
+                }
+            }
+        }
+
+        cargarDatos();
+    </script>
+</body>
+</html>
