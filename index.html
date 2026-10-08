@@ -10,25 +10,28 @@
         input, textarea { width: 100%; padding: 0.75rem; margin: 0.5rem 0 1rem 0; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 0.5rem; box-sizing: border-box; }
         button { background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.5rem; cursor: pointer; width: 100%; font-weight: bold; }
         button:hover { background: #2563eb; }
-        .link-box { background: #0f172a; padding: 0.75rem; border-radius: 0.5rem; word-break: break-all; font-family: monospace; font-size: 0.9rem; color: #38bdf8; margin: 1rem 0; }
+        .link-box { background: #0f172a; padding: 0.75rem; border-radius: 0.5rem; word-break: break-all; font-family: monospace; font-size: 0.85rem; color: #38bdf8; margin: 1rem 0; max-height: 100px; overflow-y: auto; }
         .hidden { display: none; }
     </style>
 </head>
 <body>
     <div class="card">
+        <!-- Pantalla 1: Crear Pregunta -->
         <div id="pantalla-crear" class="hidden">
             <h2>Crea tu pregunta 📝</h2>
             <input type="text" id="input-pregunta" placeholder="Ej: ¿Qué opinas de mí en una palabra?" autocomplete="off">
             <button onclick="crearPregunta()">Generar Enlace</button>
         </div>
 
+        <!-- Pantalla 2: Enlace Generado -->
         <div id="pantalla-enlace" class="hidden">
             <h2>¡Enlace listo! 🚀</h2>
-            <p>Comparte este enlace:</p>
+            <p>Comparte este enlace con tus amigos:</p>
             <div class="link-box" id="texto-enlace"></div>
-            <button onclick="verEstado()">Ver respuestas / Estado</button>
+            <button onclick="copiarEnlace()">Copiar Enlace</button>
         </div>
 
+        <!-- Pantalla 3: Responder -->
         <div id="pantalla-responder" class="hidden">
             <h2>Responde la pregunta 🤔</h2>
             <p id="pregunta-texto" style="font-size: 1.1rem; color: #38bdf8;"></p>
@@ -36,137 +39,85 @@
             <button onclick="enviarRespuesta()">Enviar respuesta</button>
         </div>
 
+        <!-- Pantalla 4: Ver Respuesta (Dueño) -->
         <div id="pantalla-resultado" class="hidden">
-            <h2 id="titulo-resultado">Estado 🎯</h2>
+            <h2>Respuesta Recibida 🎯</h2>
             <p id="pregunta-mostrada"></p>
             <div class="link-box" id="caja-respuesta" style="color: #4ade80;"></div>
+            <button onclick="location.href = window.location.pathname">Crear otra pregunta</button>
         </div>
     </div>
 
     <script>
-        // Usamos JSONBin.io con una API Key pública gratuita integrada para este propósito
-        const API_KEY = "$2a$10$wN3v2X8qK8f1m7x5Z6v2Wu8p9Q8zX7v1m3K5v7Z6v2Wu8p9Q8zX7v"; // Clave pública de prueba
         const urlParams = new URLSearchParams(window.location.search);
-        const binId = urlParams.get('id');
+        const dataParam = urlParams.get('d');
+        const respParam = urlParams.get('r');
 
-        async function cargarDatos() {
-            if (!binId) {
-                document.getElementById('pantalla-crear').classList.remove('hidden');
-                return;
-            }
-
-            try {
-                const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
-                    headers: { 'X-Master-Key': '$2a$10$x... (public)' } // O lectura abierta
-                });
-                
-                // Si la API privada requiere cabecera, usaremos un truco más directo con jsonblob o binfree:
-                // Usemos una alternativa ultra libre por JSONBin público:
-                const resPublic = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
-                    headers: { 'X-Access-Key': '$2a$10$2h...' }
-                });
-                
-                // Mejor aún: Para evitar llaves complejas, usaremos una API totalmente abierta basada en almacenamiento JSON libre:
-                const resDirect = await fetch(`https://json.spacebin.io/json/${binId}`);
-                if (resDirect.ok) {
-                    const data = await resDirect.json();
-                    mostrarInterfazDatos(data);
-                    return;
+        function iniciar() {
+            if (respParam) {
+                // Alguien ya respondió y regresó el enlace al creador
+                document.getElementById('pantalla-resultado').classList.remove('hidden');
+                try {
+                    const datos = JSON.parse(atob(respParam));
+                    document.getElementById('pregunta-mostrada').innerHTML = `<strong>Pregunta:</strong> ${datos.p}`;
+                    document.getElementById('caja-respuesta').innerText = datos.r;
+                } catch(e) {
+                    document.getElementById('caja-respuesta').innerText = "Error al leer la respuesta.";
                 }
-
-                alert('La pregunta no existe o expiró.');
-                document.getElementById('pantalla-crear').classList.remove('hidden');
-            } catch (e) {
-                console.error(e);
-                // Fallback a localStorage de emergencia si la nube falla
+            } else if (dataParam) {
+                // Alguien abrió el enlace para responder
+                document.getElementById('pantalla-responder').classList.remove('hidden');
+                try {
+                    const preguntaDecodificada = decodeURIComponent(escape(window.atob(dataParam)));
+                    document.getElementById('pregunta-texto').innerText = preguntaDecodificada;
+                } catch(e) {
+                    document.getElementById('pregunta-texto').innerText = "Pregunta no válida.";
+                }
+            } else {
+                // Pantalla principal para crear
                 document.getElementById('pantalla-crear').classList.remove('hidden');
             }
         }
 
-        async function crearPregunta() {
-            const pregunta = document.getElementById('input-pregunta').value;
+        function crearPregunta() {
+            const pregunta = document.getElementById('input-pregunta').value.trim();
             if (!pregunta) return alert('Escribe una pregunta');
 
-            const objetoNuevo = { pregunta, respuesta: null, respondido: false };
+            // Codificar la pregunta de forma segura para la URL
+            const preguntaBase64 = btoa(unescape(encodeURIComponent(pregunta)));
+            const enlace = `${window.location.origin}${window.location.pathname}?d=${preguntaBase64}`;
 
-            try {
-                const res = await fetch('https://json.spacebin.io/json', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(objetoNuevo)
-                });
-
-                if (res.ok) {
-                    const data = await res.json();
-                    const nuevoId = data.id || data._id;
-                    
-                    const enlace = `${window.location.origin}${window.location.pathname}?id=${nuevoId}`;
-                    document.getElementById('texto-enlace').innerText = enlace;
-                    document.getElementById('pantalla-crear').classList.add('hidden');
-                    document.getElementById('pantalla-enlace').classList.remove('hidden');
-                } else {
-                    alert('No se pudo crear la pregunta.');
-                }
-            } catch (e) {
-                console.error(e);
-                alert('Error de red al crear.');
-            }
+            document.getElementById('texto-enlace').innerText = enlace;
+            document.getElementById('pantalla-crear').classList.add('hidden');
+            document.getElementById('pantalla-enlace').classList.remove('hidden');
         }
 
-        async function enviarRespuesta() {
-            const respuesta = document.getElementById('input-respuesta').value;
+        function copiarEnlace() {
+            const texto = document.getElementById('texto-enlace').innerText;
+            navigator.clipboard.writeText(texto);
+            alert('¡Enlace copiado al portapapeles!');
+        }
+
+        function enviarRespuesta() {
+            const respuesta = document.getElementById('input-respuesta').value.trim();
             if (!respuesta) return alert('Escribe una respuesta');
 
-            try {
-                const resGet = await fetch(`https://json.spacebin.io/json/${binId}`);
-                if (resGet.ok) {
-                    const actual = await resGet.json();
-                    actual.respuesta = respuesta;
-                    actual.respondido = true;
-
-                    const resPut = await fetch(`https://json.spacebin.io/json/${binId}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(actual)
-                    });
-
-                    if (resPut.ok) {
-                        alert('¡Respuesta enviada!');
-                        window.location.reload();
-                    } else {
-                        alert('No se pudo enviar la respuesta.');
-                    }
-                }
-            } catch (e) {
-                console.error(e);
-                alert('Error al enviar la respuesta.');
-            }
+            const preguntaActual = document.getElementById('pregunta-texto').innerText;
+            
+            // Empaquetar pregunta y respuesta en un JSON cifrado para enviarlo de vuelta al creador
+            const paquete = JSON.stringify({ p: preguntaActual, r: respuesta });
+            const paqueteBase64 = btoa(unescape(encodeURIComponent(paquete)));
+            
+            // Redirige al usuario a una vista donde el creador podrá ver la respuesta
+            const enlaceRetorno = `${window.location.origin}${window.location.pathname}?r=${paqueteBase64}`;
+            
+            // Copiar el enlace de respuesta para que se lo mande al creador o abrirlo directamente
+            prompt("¡Respuesta guardada! Copia este enlace y envíaselo a quien te hizo la pregunta:", enlaceRetorno);
+            alert('¡Gracias por responder!');
+            window.location.href = window.location.pathname;
         }
 
-        function mostrarInterfazDatos(data) {
-            if (data.respondido) {
-                document.getElementById('pantalla-resultado').classList.remove('hidden');
-                document.getElementById('titulo-resultado').innerText = "¡Ya respondieron! 🎉";
-                document.getElementById('pregunta-mostrada').innerHTML = `<strong>Pregunta:</strong> ${data.pregunta}`;
-                document.getElementById('caja-respuesta').innerText = data.respuesta;
-            } else {
-                document.getElementById('pantalla-responder').classList.remove('hidden');
-                document.getElementById('pregunta-texto').innerText = data.pregunta;
-            }
-        }
-
-        // Ejecutar carga al iniciar
-        if (binId) {
-            fetch(`https://json.spacebin.io/json/${binId}`)
-                .then(res => res.json())
-                .then(data => mostrarInterfazDatos(data))
-                .catch(() => {
-                    alert('La pregunta no existe.');
-                    document.getElementById('pantalla-crear').classList.remove('hidden');
-                });
-        } else {
-            document.getElementById('pantalla-crear').classList.remove('hidden');
-        }
+        iniciar();
     </script>
 </body>
 </html>
