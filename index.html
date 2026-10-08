@@ -44,6 +44,8 @@
     </div>
 
     <script>
+        // Usamos una cubeta pública y gratuita de prueba en kvdb.io
+        const KVDB_BUCKET = "9XvP4xLqJg2V8zW1sF6tK9";
         const urlParams = new URLSearchParams(window.location.search);
         const idPregunta = urlParams.get('id');
 
@@ -54,10 +56,9 @@
             }
 
             try {
-                const res = await fetch(`/api/pregunta?id=${idPregunta}`);
-                const data = await res.json();
-
-                if (res.ok && !data.error) {
+                const res = await fetch(`https://kvdb.io/${KVDB_BUCKET}/${idPregunta}`);
+                if (res.ok) {
+                    const data = await res.json();
                     if (data.respondido) {
                         document.getElementById('pantalla-resultado').classList.remove('hidden');
                         document.getElementById('titulo-resultado').innerText = "¡Ya respondieron! 🎉";
@@ -73,6 +74,7 @@
                 }
             } catch (e) {
                 console.error(e);
+                alert('Error al conectar con la nube.');
                 document.getElementById('pantalla-crear').classList.remove('hidden');
             }
         }
@@ -81,18 +83,26 @@
             const pregunta = document.getElementById('input-pregunta').value;
             if (!pregunta) return alert('Escribe una pregunta');
 
-            const res = await fetch('/api/pregunta', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ accion: 'crear', pregunta })
-            });
-            const data = await res.json();
+            const nuevoId = Math.random().toString(36).substring(2, 9);
+            const objetoNuevo = { pregunta, respuesta: null, respondido: false };
 
-            if (data.id) {
-                const enlace = `${window.location.origin}${window.location.pathname}?id=${data.id}`;
-                document.getElementById('texto-enlace').innerText = enlace;
-                document.getElementById('pantalla-crear').classList.add('hidden');
-                document.getElementById('pantalla-enlace').classList.remove('hidden');
+            try {
+                const res = await fetch(`https://kvdb.io/${KVDB_BUCKET}/${nuevoId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(objetoNuevo)
+                });
+
+                if (res.ok) {
+                    const enlace = `${window.location.origin}${window.location.pathname}?id=${nuevoId}`;
+                    document.getElementById('texto-enlace').innerText = enlace;
+                    document.getElementById('pantalla-crear').classList.add('hidden');
+                    document.getElementById('pantalla-enlace').classList.remove('hidden');
+                } else {
+                    alert('No se pudo crear la pregunta.');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Error de red.');
             }
         }
 
@@ -104,16 +114,28 @@
             const respuesta = document.getElementById('input-respuesta').value;
             if (!respuesta) return alert('Escribe una respuesta');
 
-            const res = await fetch('/api/pregunta', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ accion: 'responder', id: idPregunta, respuesta })
-            });
-            const data = await res.json();
+            try {
+                const resGet = await fetch(`https://kvdb.io/${KVDB_BUCKET}/${idPregunta}`);
+                if (resGet.ok) {
+                    const actual = await resGet.json();
+                    actual.respuesta = respuesta;
+                    actual.respondido = true;
 
-            if (data.success) {
-                alert('¡Respuesta enviada!');
-                window.location.reload();
+                    const resPut = await fetch(`https://kvdb.io/${KVDB_BUCKET}/${idPregunta}`, {
+                        method: 'PUT',
+                        body: JSON.stringify(actual)
+                    });
+
+                    if (resPut.ok) {
+                        alert('¡Respuesta enviada!');
+                        window.location.reload();
+                    } else {
+                        alert('No se pudo enviar la respuesta.');
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Error al enviar.');
             }
         }
 
