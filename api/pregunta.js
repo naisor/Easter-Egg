@@ -1,24 +1,37 @@
-// Memoria temporal en la nube (funciona perfecto para pruebas rápidas)
-global.dbPreguntas = global.dbPreguntas || {};
-
 export default async function handler(req, res) {
+    // Usamos una cubeta pública y gratuita de prueba en kvdb.io para tu app
+    const KVDB_BUCKET = "9XvP4xLqJg2V8zW1sF6tK9"; 
+
     if (req.method === 'POST') {
         const { accion, pregunta, id, respuesta } = req.body;
 
         if (accion === 'crear') {
             const nuevoId = Math.random().toString(36).substring(2, 9);
-            global.dbPreguntas[nuevoId] = {
-                pregunta,
-                respuesta: null,
-                respondido: false
-            };
+            const objetoNuevo = { pregunta, respuesta: null, respondido: false };
+
+            // Guardar en KVDB.io
+            await fetch(`https://kvdb.io/${KVDB_BUCKET}/${nuevoId}`, {
+                method: 'PUT',
+                body: JSON.stringify(objetoNuevo)
+            });
+
             return res.status(200).json({ id: nuevoId });
         }
 
         if (accion === 'responder') {
-            if (global.dbPreguntas[id]) {
-                global.dbPreguntas[id].respuesta = respuesta;
-                global.dbPreguntas[id].respondido = true;
+            // Leer el registro actual
+            const response = await fetch(`https://kvdb.io/${KVDB_BUCKET}/${id}`);
+            if (response.ok) {
+                const actual = await response.json();
+                actual.respuesta = respuesta;
+                actual.respondido = true;
+
+                // Actualizar en KVDB.io
+                await fetch(`https://kvdb.io/${KVDB_BUCKET}/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(actual)
+                });
+
                 return res.status(200).json({ success: true });
             }
             return res.status(404).json({ error: 'No encontrado' });
@@ -27,8 +40,12 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
         const { id } = req.query;
-        if (id && global.dbPreguntas[id]) {
-            return res.status(200).json(global.dbPreguntas[id]);
+        if (id) {
+            const response = await fetch(`https://kvdb.io/${KVDB_BUCKET}/${id}`);
+            if (response.ok) {
+                const datos = await response.json();
+                return res.status(200).json(datos);
+            }
         }
         return res.status(404).json({ error: 'No encontrado' });
     }
