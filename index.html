@@ -43,7 +43,7 @@
         <!-- Pantalla 4: Éxito -->
         <div id="pantalla-exito" class="hidden">
             <h2>¡Enviado con éxito! 🎉</h2>
-            <p>Tu respuesta ha sido guardada en el Gist de Naisor.</p>
+            <p>Tu respuesta ha sido guardada en el Gist.</p>
         </div>
 
         <!-- Pantalla 5: Ver la respuesta en tu Gist -->
@@ -57,7 +57,7 @@
 
     <script>
         const GIST_ID = "21e7f4922bfa12a3ef96c0ab4a772cbc";
-        const GITHUB_TOKEN = "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"; 
+        const GITHUB_TOKEN = "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"; // Reemplaza esto con tu token ghp_...
 
         const urlParams = new URLSearchParams(window.location.search);
         const modoResponder = urlParams.get('responder') === 'true';
@@ -100,7 +100,7 @@
             };
 
             const bodyData = {
-                description: "Pregunta Secreta Activa de Naisor",
+                description: "Pregunta Secreta Activa",
                 files: {
                     "pregunta_activa.json": {
                         content: JSON.stringify(payloadJson, null, 2)
