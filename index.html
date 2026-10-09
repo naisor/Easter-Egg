@@ -16,10 +16,10 @@
 </head>
 <body>
     <div class="card">
-        <!-- Pantalla 1: Configurar Token y Crear Pregunta -->
+        <!-- Pantalla 1: Crear o Sobrescribir Pregunta -->
         <div id="pantalla-crear" class="hidden">
             <h2>Crea tu pregunta 📝</h2>
-            <p style="font-size: 0.85rem; color: #94a3b8;">Esto actualizará el Gist activo.</p>
+            <p style="font-size: 0.85rem; color: #94a3b8;">Sobrescribirá el Gist activo.</p>
             
             <label style="font-size: 0.8rem; color: #cbd5e1;">GitHub Token (ghp_...):</label>
             <input type="password" id="input-token" placeholder="Pega tu token aquí">
@@ -40,29 +40,28 @@
         <!-- Pantalla 3: La otra persona responde -->
         <div id="pantalla-responder" class="hidden">
             <h2>Responde la pregunta 🤔</h2>
-            <p id="pregunta-texto" style="font-size: 1.1rem; color: #38bdf8;">Cargando...</p>
+            <p id="pregunta-texto" style="font-size: 1.1rem; color: #38bdf8;">Cargando pregunta...</p>
             <textarea id="input-respuesta" rows="3" placeholder="Escribe tu respuesta aquí..."></textarea>
             <button onclick="enviarRespuesta()">Enviar respuesta</button>
         </div>
 
-        <!-- Pantalla 4: Éxito -->
+        <!-- Pantalla 4: Éxito al responder -->
         <div id="pantalla-exito" class="hidden">
             <h2>¡Enviado con éxito! 🎉</h2>
-            <p>Tu respuesta ha sido guardada en el Gist.</p>
+            <p>Tu respuesta ha sido registrada.</p>
         </div>
 
         <!-- Pantalla 5: Ver la respuesta -->
         <div id="pantalla-resultado" class="hidden">
             <h2>Estado de la pregunta 🎯</h2>
             <p id="pregunta-mostrada"></p>
-            <div class="link-box" id="caja-respuesta" style="color: #4ade80;">Cargando estado...</div>
+            <div class="link-box" id="caja-respuesta" style="color: #4ade80;">Cargando...</div>
             <button onclick="irACrearNueva()">Crear una nueva pregunta (Reemplazar)</button>
         </div>
     </div>
 
     <script>
         const GIST_ID = "3e89e374d10d6cfd3c017f104df08087";
-
         const urlParams = new URLSearchParams(window.location.search);
         const modoResponder = urlParams.get('responder') === 'true';
 
@@ -82,3 +81,151 @@
 
         async function cargarPreguntaParaResponder() {
             try {
+                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                const archivo = data.files['pregunta_activa.json'] || Object.values(data.files)[0];
+                const contenido = JSON.parse(archivo.content);
+                document.getElementById('pregunta-texto').innerText = contenido.pregunta || "Sin pregunta activa.";
+            } catch (e) {
+                document.getElementById('pregunta-texto').innerText = "No se pudo cargar la pregunta desde GitHub.";
+            }
+        }
+
+        async function crearOReemplazarPregunta() {
+            const token = document.getElementById('input-token').value.trim();
+            const pregunta = document.getElementById('input-pregunta').value.trim();
+
+            if (!token) return alert('Por favor pega tu GitHub Token.');
+            if (!pregunta) return alert('Escribe una pregunta.');
+
+            localStorage.setItem('gh_token', token);
+
+            const payloadJson = {
+                pregunta: pregunta,
+                respuesta: "",
+                respondido: false
+            };
+
+            const bodyData = {
+                description: "Pregunta Secreta Activa",
+                files: {
+                    "pregunta_activa.json": {
+                        content: JSON.stringify(payloadJson, null, 2)
+                    }
+                }
+            };
+
+            try {
+                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/vnd.github.v3+json'
+                    },
+                    body: JSON.stringify(bodyData)
+                });
+
+                if (res.ok) {
+                    const enlace = `${window.location.origin}${window.location.pathname}?responder=true`;
+                    document.getElementById('texto-enlace').innerText = enlace;
+                    document.getElementById('pantalla-crear').classList.add('hidden');
+                    document.getElementById('pantalla-enlace').classList.remove('hidden');
+                } else {
+                    const errData = await res.json().catch(() => ({ message: 'Error de autenticación' }));
+                    alert('Error de GitHub: ' + (errData.message || 'Verifica los permisos de tu token.'));
+                }
+            } catch (e) {
+                alert('Error de conexión a GitHub.');
+            }
+        }
+
+        async function verEstado() {
+            try {
+                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`);
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                const archivo = data.files['pregunta_activa.json'] || Object.values(data.files)[0];
+                
+                if (!archivo) {
+                    irACrearNueva();
+                    return;
+                }
+
+                const contenido = JSON.parse(archivo.content);
+
+                document.getElementById('pantalla-crear').classList.add('hidden');
+                document.getElementById('pantalla-enlace').classList.add('hidden');
+                document.getElementById('pantalla-resultado').classList.remove('hidden');
+
+                document.getElementById('pregunta-mostrada').innerHTML = `<strong>Tu pregunta:</strong> ${contenido.pregunta}`;
+                
+                if (contenido.respondido) {
+                    document.getElementById('caja-respuesta').innerHTML = `<strong>Respuesta recibida:</strong> ${contenido.respuesta}`;
+                } else {
+                    const enlaceResponder = `${window.location.origin}${window.location.pathname}?responder=true`;
+                    document.getElementById('caja-respuesta').innerHTML = `<em>Aún no hay respuesta... Enlace:<br><a href="${enlaceResponder}" target="_blank" style="color: #38bdf8;">${enlaceResponder}</a></em>`;
+                }
+            } catch (e) {
+                irACrearNueva();
+            }
+        }
+
+        async function enviarRespuesta() {
+            const respuesta = document.getElementById('input-respuesta').value.trim();
+            if (!respuesta) return alert('Escribe una respuesta.');
+
+            const savedToken = localStorage.getItem('gh_token') || "";
+
+            try {
+                const resGet = await fetch(`https://api.github.com/gists/${GIST_ID}`);
+                if (!resGet.ok) throw new Error("No se pudo leer el Gist.");
+                
+                const data = await resGet.json();
+                const archivoKey = Object.keys(data.files)[0];
+                const contenido = JSON.parse(data.files[archivoKey].content);
+
+                contenido.respuesta = respuesta;
+                contenido.respondido = true;
+
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/vnd.github.v3+json'
+                };
+                if (savedToken) {
+                    headers['Authorization'] = `Bearer ${savedToken}`;
+                }
+
+                const resPatch = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                    method: 'PATCH',
+                    headers: headers,
+                    body: JSON.stringify({
+                        files: {
+                            [archivoKey]: {
+                                content: JSON.stringify(contenido, null, 2)
+                            }
+                        }
+                    })
+                });
+
+                if (resPatch.ok) {
+                    document.getElementById('pantalla-responder').classList.add('hidden');
+                    document.getElementById('pantalla-exito').classList.remove('hidden');
+                } else {
+                    alert('Para actualizar el Gist se requiere autorización. Asegúrate de haber guardado el token al crear la pregunta.');
+                }
+            } catch (e) {
+                alert('Error al enviar la respuesta.');
+            }
+        }
+
+        function irACrearNueva() {
+            document.getElementById('pantalla-resultado').classList.add('hidden');
+            document.getElementById('pantalla-crear').classList.remove('hidden');
+        }
+
+        inicializar();
+    </script>
+</body>
+</html>
