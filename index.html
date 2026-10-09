@@ -41,6 +41,7 @@
             border-radius: 0.75rem;
             margin-bottom: 1.5rem;
             border: 1px solid #334155;
+            display: block;
         }
         h2 {
             font-size: 1.3rem;
@@ -95,7 +96,7 @@
             text-align: left;
         }
         .hidden { 
-            display: none !important; 
+            display: none; 
         }
     </style>
 </head>
@@ -103,5 +104,55 @@
     <div class="card">
         <h1>Bienvenido al Easter Egg 🥚✨</h1>
         
+        <!-- Imagen fija -->
         <img 
-            src="
+            src="https://lh3.googleusercontent.com/pw/AP1GczOCuDpgbjBqu9fzZPprtcAoCgWGCkazAJdGLfL2ctx7yJOPaE7ue51u4t62SPHWpUUiyeOMlo7ALoUsZ5VNiqMIuc-A7MeM0gqSQtTSebDl6HhMmUX4E9tGmZWUuFF1rbeLNJ20_cMl_Nak1XVo16qTWw=w896-h1195-s-no?authuser=0" 
+            alt="Easter Egg Banner" 
+            class="banner-img"
+        >
+
+        <!-- Pantalla 1: Crear o Sobrescribir Pregunta (Visible por defecto) -->
+        <div id="pantalla-crear">
+            <h2>Crea tu pregunta 📝</h2>
+            <p style="font-size: 0.85rem; color: #94a3b8;">Escribe tu pregunta para compartirla.</p>
+            
+            <input type="text" id="input-pregunta" placeholder="Ej: ¿Qué opinas de mí?" autocomplete="off">
+            <button id="btn-crear" onclick="crearOReemplazarPregunta()">Crear / Actualizar Pregunta</button>
+            <button id="btn-ver-estado" class="btn-secondary" onclick="verEstado()">Ver respuesta actual</button>
+        </div>
+
+        <!-- Pantalla 2: Enlace Listo -->
+        <div id="pantalla-enlace" class="hidden">
+            <h2>¡Enlace listo! 🚀</h2>
+            <p>Comparte este enlace para que te respondan:</p>
+            <div class="link-box" id="texto-enlace"></div>
+            <button onclick="verEstado()">Ver estado / Respuesta</button>
+            <button class="btn-secondary" onclick="irACrearNueva()">Volver a Crear</button>
+        </div>
+
+        <!-- Pantalla 3: La otra persona responde -->
+        <div id="pantalla-responder" class="hidden">
+            <h2>Responde la pregunta 🤔</h2>
+            <p id="pregunta-texto" style="font-size: 1.1rem; color: #38bdf8;">Cargando pregunta...</p>
+            <textarea id="input-respuesta" rows="3" placeholder="Escribe tu respuesta aquí..."></textarea>
+            <button id="btn-enviar-resp" onclick="enviarRespuesta()">Enviar respuesta</button>
+        </div>
+
+        <!-- Pantalla 4: Éxito al responder -->
+        <div id="pantalla-exito" class="hidden">
+            <h2>¡Enviado con éxito! 🎉</h2>
+            <p>Tu respuesta ha sido guardada.</p>
+        </div>
+
+        <!-- Pantalla 5: Ver la respuesta -->
+        <div id="pantalla-resultado" class="hidden">
+            <h2>Estado de la pregunta 🎯</h2>
+            <p id="pregunta-mostrada"></p>
+            <div class="link-box" id="caja-respuesta" style="color: #4ade80;">Cargando...</div>
+            <button onclick="irACrearNueva()">Crear una nueva pregunta</button>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const modoResponder = urlParams.get('responder') === 'true
