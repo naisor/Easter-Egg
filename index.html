@@ -72,9 +72,16 @@
             font-weight: bold; 
             font-size: 1rem;
             transition: background 0.2s;
+            margin-bottom: 0.5rem;
         }
         button:hover { 
             background: #2563eb; 
+        }
+        .btn-secondary {
+            background: #334155;
+        }
+        .btn-secondary:hover {
+            background: #475569;
         }
         .link-box { 
             background: #0f172a; 
@@ -103,6 +110,141 @@
         >
 
         <!-- Pantalla 1: Crear o Sobrescribir Pregunta -->
-        <div id="pantalla-crear" class="hidden">
+        <div id="pantalla-crear">
             <h2>Crea tu pregunta 📝</h2>
-            <p style="font-size: 0.85rem; color: #
+            <p style="font-size: 0.85rem; color: #94a3b8;">Escribe tu pregunta para compartirla.</p>
+            
+            <input type="text" id="input-pregunta" placeholder="Ej: ¿Qué opinas de mí?" autocomplete="off">
+            <button onclick="crearOReemplazarPregunta()">Crear / Actualizar Pregunta</button>
+            <button class="btn-secondary" onclick="verEstado()">Ver respuesta actual</button>
+        </div>
+
+        <!-- Pantalla 2: Enlace Listo -->
+        <div id="pantalla-enlace" class="hidden">
+            <h2>¡Enlace listo! 🚀</h2>
+            <p>Comparte este enlace para que te respondan:</p>
+            <div class="link-box" id="texto-enlace"></div>
+            <button onclick="verEstado()">Ver estado / Respuesta</button>
+        </div>
+
+        <!-- Pantalla 3: La otra persona responde -->
+        <div id="pantalla-responder" class="hidden">
+            <h2>Responde la pregunta 🤔</h2>
+            <p id="pregunta-texto" style="font-size: 1.1rem; color: #38bdf8;">Cargando pregunta...</p>
+            <textarea id="input-respuesta" rows="3" placeholder="Escribe tu respuesta aquí..."></textarea>
+            <button onclick="enviarRespuesta()">Enviar respuesta</button>
+        </div>
+
+        <!-- Pantalla 4: Éxito al responder -->
+        <div id="pantalla-exito" class="hidden">
+            <h2>¡Enviado con éxito! 🎉</h2>
+            <p>Tu respuesta ha sido guardada.</p>
+        </div>
+
+        <!-- Pantalla 5: Ver la respuesta -->
+        <div id="pantalla-resultado" class="hidden">
+            <h2>Estado de la pregunta 🎯</h2>
+            <p id="pregunta-mostrada"></p>
+            <div class="link-box" id="caja-respuesta" style="color: #4ade80;">Cargando...</div>
+            <button onclick="irACrearNueva()">Crear una nueva pregunta</button>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const modoResponder = urlParams.get('responder') === 'true';
+
+        async function inicializar() {
+            if (modoResponder) {
+                ocultarTodas();
+                document.getElementById('pantalla-responder').classList.remove('hidden');
+                cargarPreguntaParaResponder();
+            }
+        }
+
+        function ocultarTodas() {
+            document.getElementById('pantalla-crear').classList.add('hidden');
+            document.getElementById('pantalla-enlace').classList.add('hidden');
+            document.getElementById('pantalla-responder').classList.add('hidden');
+            document.getElementById('pantalla-exito').classList.add('hidden');
+            document.getElementById('pantalla-resultado').classList.add('hidden');
+        }
+
+        async function cargarPreguntaParaResponder() {
+            try {
+                const res = await fetch('/api/pregunta?t=' + Date.now());
+                const data = await res.json();
+                if (res.ok && data.pregunta) {
+                    document.getElementById('pregunta-texto').innerText = data.pregunta;
+                } else {
+                    document.getElementById('pregunta-texto').innerText = "No hay ninguna pregunta activa en este momento.";
+                }
+            } catch (e) {
+                document.getElementById('pregunta-texto').innerText = "Error al conectar con el servidor.";
+            }
+        }
+
+        async function crearOReemplazarPregunta() {
+            const pregunta = document.getElementById('input-pregunta').value.trim();
+            if (!pregunta) return alert('Escribe una pregunta.');
+
+            try {
+                const res = await fetch('/api/pregunta', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ accion: 'crear', pregunta: pregunta })
+                });
+
+                if (res.ok) {
+                    const enlace = `${window.location.origin}${window.location.pathname}?responder=true`;
+                    document.getElementById('texto-enlace').innerText = enlace;
+                    ocultarTodas();
+                    document.getElementById('pantalla-enlace').classList.remove('hidden');
+                } else {
+                    const err = await res.json();
+                    alert('Error: ' + (err.error || 'No se pudo crear la pregunta.'));
+                }
+            } catch (e) {
+                alert('Error de conexión al backend.');
+            }
+        }
+
+        async function verEstado() {
+            try {
+                const res = await fetch('/api/pregunta?t=' + Date.now());
+                const contenido = await res.json();
+
+                if (!res.ok || !contenido.pregunta) {
+                    alert("Aún no has creado ninguna pregunta.");
+                    return;
+                }
+
+                ocultarTodas();
+                document.getElementById('pantalla-resultado').classList.remove('hidden');
+
+                document.getElementById('pregunta-mostrada').innerHTML = `<strong>Tu pregunta:</strong> ${contenido.pregunta}`;
+                
+                if (contenido.respondido) {
+                    document.getElementById('caja-respuesta').innerHTML = `<strong>Respuesta recibida:</strong> ${contenido.respuesta}`;
+                } else {
+                    const enlaceResponder = `${window.location.origin}${window.location.pathname}?responder=true`;
+                    document.getElementById('caja-respuesta').innerHTML = `<em>Aún no hay respuesta... Comparte tu enlace:<br><a href="${enlaceResponder}" target="_blank" style="color: #38bdf8;">${enlaceResponder}</a></em>`;
+                }
+            } catch (e) {
+                alert("Error al obtener la respuesta.");
+            }
+        }
+
+        async function enviarRespuesta() {
+            const respuesta = document.getElementById('input-respuesta').value.trim();
+            if (!respuesta) return alert('Escribe una respuesta.');
+
+            try {
+                const res = await fetch('/api/pregunta', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ accion: 'responder', respuesta: respuesta })
+                });
+
+                if (res.ok) {
+                    ocultarTodas();
