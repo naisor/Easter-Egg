@@ -10,13 +10,10 @@ export default async function handler(req, res) {
 
   const GIST_ID = "3e89e374d10d6cfd3c017f104df08087";
   
-  // Reemplaza "PEGA_AQUI_TU_NUEVO_TOKEN" con tu token ghp_...
-  const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "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";
+  // Lee el token desde la variable de entorno de Vercel
+  const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
-  if (!GITHUB_TOKEN || GITHUB_TOKEN === "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") {
-    return res.status(500).json({ error: "Falta configurar un GITHUB_TOKEN válido." });
-  }
-
+  
   // GET: Obtener la pregunta activa
   if (req.method === 'GET') {
     try {
