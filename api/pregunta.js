@@ -1,5 +1,5 @@
+// api/pregunta.js
 export default async function handler(req, res) {
-  // Encabezados CORS para permitir peticiones
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
@@ -10,10 +10,11 @@ export default async function handler(req, res) {
   }
 
   const GIST_ID = "3e89e374d10d6cfd3c017f104df08087";
-  const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Se lee desde las variables de entorno de Vercel
+  // Si la variable de entorno está vacía, toma el token como respaldo
+  const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "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";
 
   if (!GITHUB_TOKEN) {
-    return res.status(500).json({ error: "Falta configurar GITHUB_TOKEN en las variables de entorno de Vercel." });
+    return res.status(500).json({ error: "Falta configurar GITHUB_TOKEN." });
   }
 
   // GET: Obtener la pregunta activa
@@ -42,7 +43,6 @@ export default async function handler(req, res) {
     try {
       const { accion, pregunta, respuesta } = req.body;
 
-      // 1. Obtener contenido actual
       const resGet = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
         headers: { 'Accept': 'application/vnd.github.v3+json' }
       });
@@ -52,14 +52,12 @@ export default async function handler(req, res) {
       let payloadJson = {};
 
       if (accion === 'crear') {
-        // Sobrescribe todo con la nueva pregunta
         payloadJson = {
           pregunta: pregunta,
           respuesta: "",
           respondido: false
         };
       } else if (accion === 'responder') {
-        // Mantiene la pregunta y actualiza la respuesta
         const contenidoPrevio = JSON.parse(dataGet.files[archivoKey].content);
         payloadJson = {
           pregunta: contenidoPrevio.pregunta,
@@ -70,7 +68,6 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Acción no válida." });
       }
 
-      // 2. Actualizar el Gist desde el servidor usando el Token seguro
       const resPatch = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
         method: 'PATCH',
         headers: {
@@ -98,5 +95,5 @@ export default async function handler(req, res) {
     }
   }
 
-  return res.status(45)
+  return res.status(405).json({ error: "Método no permitido." });
 }
