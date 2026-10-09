@@ -3,167 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi Pregunta Secreta</title>
+    <title>Bienvenido al Easter Egg</title>
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: #1e293b; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.3); width: 100%; max-width: 400px; box-sizing: border-box; }
-        input, textarea { width: 100%; padding: 0.75rem; margin: 0.5rem 0 1rem 0; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 0.5rem; box-sizing: border-box; }
-        button { background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.5rem; cursor: pointer; width: 100%; font-weight: bold; }
-        button:hover { background: #2563eb; }
-        .link-box { background: #0f172a; padding: 0.75rem; border-radius: 0.5rem; word-break: break-all; font-family: monospace; font-size: 0.85rem; color: #38bdf8; margin: 1rem 0; }
-        .hidden { display: none; }
+        body { 
+            font-family: system-ui, -apple-system, sans-serif; 
+            background: #0f172a; 
+            color: #f8fafc; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            margin: 0; 
+            padding: 1.5rem;
+            box-sizing: border-box;
+        }
+        .card { 
+            background: #1e293b; 
+            padding: 2rem; 
+            border-radius: 1rem; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3); 
+            width: 100%; 
+            max-width: 440px; 
+            box-sizing: border-box; 
+            text-align: center;
+        }
+        h1 {
+            font-size: 1.75rem;
+            margin-top: 0;
+            margin-bottom: 1rem;
+            color: #f8fafc;
+        }
+        .banner-img {
+            width: 100%;
+            height: auto;
+            max-height: 350px;
+            object-fit: cover;
+            border-radius: 0.75rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #334155;
+        }
+        h2 {
+            font-size: 1.3rem;
+            margin-top: 0.5rem;
+            text-align: left;
+        }
+        p {
+            text-align: left;
+        }
+        input, textarea { 
+            width: 100%; 
+            padding: 0.75rem; 
+            margin: 0.5rem 0 1rem 0; 
+            background: #0f172a; 
+            border: 1px solid #334155; 
+            color: #fff; 
+            border-radius: 0.5rem; 
+            box-sizing: border-box; 
+            font-family: inherit;
+        }
+        button { 
+            background: #3b82f6; 
+            color: white; 
+            border: none; 
+            padding: 0.75rem 1.5rem; 
+            border-radius: 0.5rem; 
+            cursor: pointer; 
+            width: 100%; 
+            font-weight: bold; 
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+        button:hover { 
+            background: #2563eb; 
+        }
+        .link-box { 
+            background: #0f172a; 
+            padding: 0.75rem; 
+            border-radius: 0.5rem; 
+            word-break: break-all; 
+            font-family: monospace; 
+            font-size: 0.85rem; 
+            color: #38bdf8; 
+            margin: 1rem 0; 
+            text-align: left;
+        }
+        .hidden { 
+            display: none; 
+        }
     </style>
 </head>
 <body>
     <div class="card">
+        <h1>Bienvenido al Easter Egg 🥚✨</h1>
+        
+        <img 
+            src="https://lh3.googleusercontent.com/pw/AP1GczOCuDpgbjBqu9fzZPprtcAoCgWGCkazAJdGLfL2ctx7yJOPaE7ue51u4t62SPHWpUUiyeOMlo7ALoUsZ5VNiqMIuc-A7MeM0gqSQtTSebDl6HhMmUX4E9tGmZWUuFF1rbeLNJ20_cMl_Nak1XVo16qTWw=w896-h1195-s-no?authuser=0" 
+            alt="Easter Egg Banner" 
+            class="banner-img"
+        >
+
         <!-- Pantalla 1: Crear o Sobrescribir Pregunta -->
         <div id="pantalla-crear" class="hidden">
             <h2>Crea tu pregunta 📝</h2>
-            <p style="font-size: 0.85rem; color: #94a3b8;">Sobrescribirá cuualquier pregunta activa anterior.</p>
-            
-            <input type="text" id="input-pregunta" placeholder="Ej: ¿Qué opinas de mí?" autocomplete="off">
-            <button onclick="crearOReemplazarPregunta()">Crear / Actualizar Pregunta</button>
-        </div>
-
-        <!-- Pantalla 2: Enlace Listo -->
-        <div id="pantalla-enlace" class="hidden">
-            <h2>¡Enlace listo! 🚀</h2>
-            <p>Comparte este enlace para que te respondan:</p>
-            <div class="link-box" id="texto-enlace"></div>
-            <button onclick="verEstado()">Ver estado / Respuesta</button>
-        </div>
-
-        <!-- Pantalla 3: La otra persona responde -->
-        <div id="pantalla-responder" class="hidden">
-            <h2>Responde la pregunta 🤔</h2>
-            <p id="pregunta-texto" style="font-size: 1.1rem; color: #38bdf8;">Cargando pregunta...</p>
-            <textarea id="input-respuesta" rows="3" placeholder="Escribe tu respuesta aquí..."></textarea>
-            <button onclick="enviarRespuesta()">Enviar respuesta</button>
-        </div>
-
-        <!-- Pantalla 4: Éxito al responder -->
-        <div id="pantalla-exito" class="hidden">
-            <h2>¡Enviado con éxito! 🎉</h2>
-            <p>Tu respuesta ha sido guardada.</p>
-        </div>
-
-        <!-- Pantalla 5: Ver la respuesta -->
-        <div id="pantalla-resultado" class="hidden">
-            <h2>Estado de la pregunta 🎯</h2>
-            <p id="pregunta-mostrada"></p>
-            <div class="link-box" id="caja-respuesta" style="color: #4ade80;">Cargando...</div>
-            <button onclick="irACrearNueva()">Crear una nueva pregunta (Reemplazar)</button>
-        </div>
-    </div>
-
-    <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const modoResponder = urlParams.get('responder') === 'true';
-
-        async function inicializar() {
-            if (modoResponder) {
-                document.getElementById('pantalla-responder').classList.remove('hidden');
-                cargarPreguntaParaResponder();
-            } else {
-                verEstado();
-            }
-        }
-
-        async function cargarPreguntaParaResponder() {
-            try {
-                const res = await fetch('/api/pregunta');
-                const data = await res.json();
-                if (res.ok && data.pregunta) {
-                    document.getElementById('pregunta-texto').innerText = data.pregunta;
-                } else {
-                    document.getElementById('pregunta-texto').innerText = "No hay ninguna pregunta activa en este momento.";
-                }
-            } catch (e) {
-                document.getElementById('pregunta-texto').innerText = "Error al conectar con el servidor.";
-            }
-        }
-
-        async function crearOReemplazarPregunta() {
-            const pregunta = document.getElementById('input-pregunta').value.trim();
-            if (!pregunta) return alert('Escribe una pregunta.');
-
-            try {
-                const res = await fetch('/api/pregunta', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ accion: 'crear', pregunta: pregunta })
-                });
-
-                if (res.ok) {
-                    const enlace = `${window.location.origin}${window.location.pathname}?responder=true`;
-                    document.getElementById('texto-enlace').innerText = enlace;
-                    document.getElementById('pantalla-crear').classList.add('hidden');
-                    document.getElementById('pantalla-enlace').classList.remove('hidden');
-                } else {
-                    const err = await res.json();
-                    alert('Error: ' + (err.error || 'No se pudo crear la pregunta.'));
-                }
-            } catch (e) {
-                alert('Error de conexión al backend.');
-            }
-        }
-
-        async function verEstado() {
-            try {
-                const res = await fetch('/api/pregunta');
-                const contenido = await res.json();
-
-                if (!res.ok || !contenido.pregunta) {
-                    irACrearNueva();
-                    return;
-                }
-
-                document.getElementById('pantalla-crear').classList.add('hidden');
-                document.getElementById('pantalla-enlace').classList.add('hidden');
-                document.getElementById('pantalla-resultado').classList.remove('hidden');
-
-                document.getElementById('pregunta-mostrada').innerHTML = `<strong>Tu pregunta:</strong> ${contenido.pregunta}`;
-                
-                if (contenido.respondido) {
-                    document.getElementById('caja-respuesta').innerHTML = `<strong>Respuesta recibida:</strong> ${contenido.respuesta}`;
-                } else {
-                    const enlaceResponder = `${window.location.origin}${window.location.pathname}?responder=true`;
-                    document.getElementById('caja-respuesta').innerHTML = `<em>Aún no hay respuesta... Comparte tu enlace:<br><a href="${enlaceResponder}" target="_blank" style="color: #38bdf8;">${enlaceResponder}</a></em>`;
-                }
-            } catch (e) {
-                irACrearNueva();
-            }
-        }
-
-        async function enviarRespuesta() {
-            const respuesta = document.getElementById('input-respuesta').value.trim();
-            if (!respuesta) return alert('Escribe una respuesta.');
-
-            try {
-                const res = await fetch('/api/pregunta', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ accion: 'responder', respuesta: respuesta })
-                });
-
-                if (res.ok) {
-                    document.getElementById('pantalla-responder').classList.add('hidden');
-                    document.getElementById('pantalla-exito').classList.remove('hidden');
-                } else {
-                    const err = await res.json();
-                    alert('Error: ' + (err.error || 'No se pudo guardar la respuesta.'));
-                }
-            } catch (e) {
-                alert('Error de conexión.');
-            }
-        }
-
-        function irACrearNueva() {
-            document.getElementById('pantalla-resultado').classList.add('hidden');
-            document.getElementById('pantalla-crear').classList.remove('hidden');
-        }
-
-        inicializar();
-    </script>
-</body>
-</html>
+            <p style="font-size: 0.85rem; color: #
