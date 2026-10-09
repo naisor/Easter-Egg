@@ -1,4 +1,9 @@
 export default async function handler(req, res) {
+  // Deshabilitar caché por completo en Vercel y el navegador
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
@@ -9,15 +14,19 @@ export default async function handler(req, res) {
   }
 
   const GIST_ID = "3e89e374d10d6cfd3c017f104df08087";
-  
-  // Lee el token desde la variable de entorno de Vercel
   const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
-  
+  if (!GITHUB_TOKEN) {
+    return res.status(500).json({ error: "Falta configurar GITHUB_TOKEN en las variables de entorno de Vercel." });
+  }
+
+  // Timestamp para evitar caché de GitHub REST API
+  const cacheBuster = `?t=${Date.now()}`;
+
   // GET: Obtener la pregunta activa
   if (req.method === 'GET') {
     try {
-      const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      const response = await fetch(`https://api.github.com/gists/${GIST_ID}${cacheBuster}`, {
         headers: { 
           'Accept': 'application/vnd.github.v3+json',
           'User-Agent': 'Vercel-Serverless-App'
@@ -43,7 +52,7 @@ export default async function handler(req, res) {
     try {
       const { accion, pregunta, respuesta } = req.body;
 
-      const resGet = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      const resGet = await fetch(`https://api.github.com/gists/${GIST_ID}${cacheBuster}`, {
         headers: { 
           'Accept': 'application/vnd.github.v3+json',
           'User-Agent': 'Vercel-Serverless-App'
@@ -97,7 +106,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, data: payloadJson });
       } else {
         const err = await resPatch.json();
-        return res.status(resPatch.status).json({ error: err.message || "Error al autenticar con GitHub." });
+        return res.status(resPatch.status).json({ error: err.message || "Error al actualizar la pregunta." });
       }
     } catch (error) {
       return res.status(500).json({ error: "Error interno en el servidor." });
