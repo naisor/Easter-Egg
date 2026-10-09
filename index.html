@@ -19,12 +19,8 @@
         <!-- Pantalla 1: Crear o Sobrescribir Pregunta -->
         <div id="pantalla-crear" class="hidden">
             <h2>Crea tu pregunta 📝</h2>
-            <p style="font-size: 0.85rem; color: #94a3b8;">Sobrescribirá el Gist activo.</p>
+            <p style="font-size: 0.85rem; color: #94a3b8;">Sobrescribirá cualquier pregunta activa anterior.</p>
             
-            <label style="font-size: 0.8rem; color: #cbd5e1;">GitHub Token (ghp_...):</label>
-            <input type="password" id="input-token" placeholder="Pega tu token aquí">
-            
-            <label style="font-size: 0.8rem; color: #cbd5e1;">Pregunta:</label>
             <input type="text" id="input-pregunta" placeholder="Ej: ¿Qué opinas de mí?" autocomplete="off">
             <button onclick="crearOReemplazarPregunta()">Crear / Actualizar Pregunta</button>
         </div>
@@ -48,7 +44,7 @@
         <!-- Pantalla 4: Éxito al responder -->
         <div id="pantalla-exito" class="hidden">
             <h2>¡Enviado con éxito! 🎉</h2>
-            <p>Tu respuesta ha sido registrada.</p>
+            <p>Tu respuesta ha sido guardada.</p>
         </div>
 
         <!-- Pantalla 5: Ver la respuesta -->
@@ -61,16 +57,10 @@
     </div>
 
     <script>
-        const GIST_ID = "3e89e374d10d6cfd3c017f104df08087";
         const urlParams = new URLSearchParams(window.location.search);
         const modoResponder = urlParams.get('responder') === 'true';
 
-        function inicializar() {
-            const savedToken = localStorage.getItem('gh_token') || "";
-            if (savedToken) {
-                document.getElementById('input-token').value = savedToken;
-            }
-
+        async function inicializar() {
             if (modoResponder) {
                 document.getElementById('pantalla-responder').classList.remove('hidden');
                 cargarPreguntaParaResponder();
@@ -81,50 +71,27 @@
 
         async function cargarPreguntaParaResponder() {
             try {
-                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const res = await fetch('/api/pregunta');
                 const data = await res.json();
-                const archivo = data.files['pregunta_activa.json'] || Object.values(data.files)[0];
-                const contenido = JSON.parse(archivo.content);
-                document.getElementById('pregunta-texto').innerText = contenido.pregunta || "Sin pregunta activa.";
+                if (res.ok && data.pregunta) {
+                    document.getElementById('pregunta-texto').innerText = data.pregunta;
+                } else {
+                    document.getElementById('pregunta-texto').innerText = "No hay ninguna pregunta activa en este momento.";
+                }
             } catch (e) {
-                document.getElementById('pregunta-texto').innerText = "No se pudo cargar la pregunta desde GitHub.";
+                document.getElementById('pregunta-texto').innerText = "Error al conectar con el servidor.";
             }
         }
 
         async function crearOReemplazarPregunta() {
-            const token = document.getElementById('input-token').value.trim();
             const pregunta = document.getElementById('input-pregunta').value.trim();
-
-            if (!token) return alert('Por favor pega tu GitHub Token.');
             if (!pregunta) return alert('Escribe una pregunta.');
 
-            localStorage.setItem('gh_token', token);
-
-            const payloadJson = {
-                pregunta: pregunta,
-                respuesta: "",
-                respondido: false
-            };
-
-            const bodyData = {
-                description: "Pregunta Secreta Activa",
-                files: {
-                    "pregunta_activa.json": {
-                        content: JSON.stringify(payloadJson, null, 2)
-                    }
-                }
-            };
-
             try {
-                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-                    method: 'PATCH',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/vnd.github.v3+json'
-                    },
-                    body: JSON.stringify(bodyData)
+                const res = await fetch('/api/pregunta', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ accion: 'crear', pregunta: pregunta })
                 });
 
                 if (res.ok) {
@@ -133,27 +100,23 @@
                     document.getElementById('pantalla-crear').classList.add('hidden');
                     document.getElementById('pantalla-enlace').classList.remove('hidden');
                 } else {
-                    const errData = await res.json().catch(() => ({ message: 'Error de autenticación' }));
-                    alert('Error de GitHub: ' + (errData.message || 'Verifica los permisos de tu token.'));
+                    const err = await res.json();
+                    alert('Error: ' + (err.error || 'No se pudo crear la pregunta.'));
                 }
             } catch (e) {
-                alert('Error de conexión a GitHub.');
+                alert('Error de conexión al backend.');
             }
         }
 
         async function verEstado() {
             try {
-                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`);
-                if (!res.ok) throw new Error();
-                const data = await res.json();
-                const archivo = data.files['pregunta_activa.json'] || Object.values(data.files)[0];
-                
-                if (!archivo) {
+                const res = await fetch('/api/pregunta');
+                const contenido = await res.json();
+
+                if (!res.ok || !contenido.pregunta) {
                     irACrearNueva();
                     return;
                 }
-
-                const contenido = JSON.parse(archivo.content);
 
                 document.getElementById('pantalla-crear').classList.add('hidden');
                 document.getElementById('pantalla-enlace').classList.add('hidden');
@@ -165,7 +128,7 @@
                     document.getElementById('caja-respuesta').innerHTML = `<strong>Respuesta recibida:</strong> ${contenido.respuesta}`;
                 } else {
                     const enlaceResponder = `${window.location.origin}${window.location.pathname}?responder=true`;
-                    document.getElementById('caja-respuesta').innerHTML = `<em>Aún no hay respuesta... Enlace:<br><a href="${enlaceResponder}" target="_blank" style="color: #38bdf8;">${enlaceResponder}</a></em>`;
+                    document.getElementById('caja-respuesta').innerHTML = `<em>Aún no hay respuesta... Comparte tu enlace:<br><a href="${enlaceResponder}" target="_blank" style="color: #38bdf8;">${enlaceResponder}</a></em>`;
                 }
             } catch (e) {
                 irACrearNueva();
@@ -176,47 +139,22 @@
             const respuesta = document.getElementById('input-respuesta').value.trim();
             if (!respuesta) return alert('Escribe una respuesta.');
 
-            const savedToken = localStorage.getItem('gh_token') || "";
-
             try {
-                const resGet = await fetch(`https://api.github.com/gists/${GIST_ID}`);
-                if (!resGet.ok) throw new Error("No se pudo leer el Gist.");
-                
-                const data = await resGet.json();
-                const archivoKey = Object.keys(data.files)[0];
-                const contenido = JSON.parse(data.files[archivoKey].content);
-
-                contenido.respuesta = respuesta;
-                contenido.respondido = true;
-
-                const headers = {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/vnd.github.v3+json'
-                };
-                if (savedToken) {
-                    headers['Authorization'] = `Bearer ${savedToken}`;
-                }
-
-                const resPatch = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-                    method: 'PATCH',
-                    headers: headers,
-                    body: JSON.stringify({
-                        files: {
-                            [archivoKey]: {
-                                content: JSON.stringify(contenido, null, 2)
-                            }
-                        }
-                    })
+                const res = await fetch('/api/pregunta', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ accion: 'responder', respuesta: respuesta })
                 });
 
-                if (resPatch.ok) {
+                if (res.ok) {
                     document.getElementById('pantalla-responder').classList.add('hidden');
                     document.getElementById('pantalla-exito').classList.remove('hidden');
                 } else {
-                    alert('Para actualizar el Gist se requiere autorización. Asegúrate de haber guardado el token al crear la pregunta.');
+                    const err = await res.json();
+                    alert('Error: ' + (err.error || 'No se pudo guardar la respuesta.'));
                 }
             } catch (e) {
-                alert('Error al enviar la respuesta.');
+                alert('Error de conexión.');
             }
         }
 
