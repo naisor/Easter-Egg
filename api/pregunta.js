@@ -9,14 +9,13 @@ export default async function handler(req, res) {
   }
 
   const GIST_ID = "3e89e374d10d6cfd3c017f104df08087";
-  const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "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";
+  
+  // Reemplaza "PEGA_AQUI_TU_NUEVO_TOKEN" con tu token ghp_...
+  const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "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";
 
-  if (!GITHUB_TOKEN) {
+  if (!GITHUB_TOKEN || GITHUB_TOKEN === "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") {
     return res.status(500).json({ error: "Falta configurar un GITHUB_TOKEN válido." });
   }
-
-  // Encabezado de autenticación para Personal Access Tokens Classic
-  const authHeader = `token ${GITHUB_TOKEN}`;
 
   // GET: Obtener la pregunta activa
   if (req.method === 'GET') {
@@ -42,7 +41,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // POST: Crear pregunta O Responder pregunta
+  // POST: Crear o responder pregunta
   if (req.method === 'POST') {
     try {
       const { accion, pregunta, respuesta } = req.body;
@@ -83,7 +82,7 @@ export default async function handler(req, res) {
       const resPatch = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
         method: 'PATCH',
         headers: {
-          'Authorization': authHeader,
+          'Authorization': `token ${GITHUB_TOKEN}`,
           'Content-Type': 'application/json',
           'Accept': 'application/vnd.github.v3+json',
           'User-Agent': 'Vercel-Serverless-App'
