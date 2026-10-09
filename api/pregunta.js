@@ -1,4 +1,3 @@
-// api/pregunta.js
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,18 +9,23 @@ export default async function handler(req, res) {
   }
 
   const GIST_ID = "3e89e374d10d6cfd3c017f104df08087";
-  // Si la variable de entorno está vacía, toma el token como respaldo
   const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "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";
 
   if (!GITHUB_TOKEN) {
-    return res.status(500).json({ error: "Falta configurar GITHUB_TOKEN." });
+    return res.status(500).json({ error: "Falta configurar un GITHUB_TOKEN válido." });
   }
+
+  // Encabezado de autenticación para Personal Access Tokens Classic
+  const authHeader = `token ${GITHUB_TOKEN}`;
 
   // GET: Obtener la pregunta activa
   if (req.method === 'GET') {
     try {
       const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-        headers: { 'Accept': 'application/vnd.github.v3+json' }
+        headers: { 
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'Vercel-Serverless-App'
+        }
       });
       
       if (!response.ok) {
@@ -44,8 +48,16 @@ export default async function handler(req, res) {
       const { accion, pregunta, respuesta } = req.body;
 
       const resGet = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-        headers: { 'Accept': 'application/vnd.github.v3+json' }
+        headers: { 
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'Vercel-Serverless-App'
+        }
       });
+      
+      if (!resGet.ok) {
+        return res.status(resGet.status).json({ error: "No se pudo acceder al Gist en GitHub." });
+      }
+
       const dataGet = await resGet.json();
       const archivoKey = Object.keys(dataGet.files)[0];
 
@@ -71,9 +83,10 @@ export default async function handler(req, res) {
       const resPatch = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${GITHUB_TOKEN}`,
+          'Authorization': authHeader,
           'Content-Type': 'application/json',
-          'Accept': 'application/vnd.github.v3+json'
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'Vercel-Serverless-App'
         },
         body: JSON.stringify({
           files: {
@@ -88,7 +101,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, data: payloadJson });
       } else {
         const err = await resPatch.json();
-        return res.status(resPatch.status).json({ error: err.message || "Error al actualizar Gist." });
+        return res.status(resPatch.status).json({ error: err.message || "Error al autenticar con GitHub." });
       }
     } catch (error) {
       return res.status(500).json({ error: "Error interno en el servidor." });
