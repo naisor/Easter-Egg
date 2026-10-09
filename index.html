@@ -104,14 +104,14 @@
     <div class="card">
         <h1>Bienvenido al Easter Egg 🥚✨</h1>
         
-        <!-- Imagen fija -->
+        <!-- Imagen Banner fija -->
         <img 
             src="https://lh3.googleusercontent.com/pw/AP1GczOCuDpgbjBqu9fzZPprtcAoCgWGCkazAJdGLfL2ctx7yJOPaE7ue51u4t62SPHWpUUiyeOMlo7ALoUsZ5VNiqMIuc-A7MeM0gqSQtTSebDl6HhMmUX4E9tGmZWUuFF1rbeLNJ20_cMl_Nak1XVo16qTWw=w896-h1195-s-no?authuser=0" 
             alt="Easter Egg Banner" 
             class="banner-img"
         >
 
-        <!-- Pantalla 1: Crear o Sobrescribir Pregunta (Visible por defecto) -->
+        <!-- Pantalla 1: Crear o Sobrescribir Pregunta -->
         <div id="pantalla-crear">
             <h2>Crea tu pregunta 📝</h2>
             <p style="font-size: 0.85rem; color: #94a3b8;">Escribe tu pregunta para compartirla.</p>
@@ -154,5 +154,183 @@
     </div>
 
     <script>
+        const ORIGEN = window.location.origin;
         const urlParams = new URLSearchParams(window.location.search);
-        const modoResponder = urlParams.get('responder') === 'true
+        const modoResponder = urlParams.get('responder') === 'true';
+
+        function cambiarPantalla(idMostrar) {
+            const pantallas = ['pantalla-crear', 'pantalla-enlace', 'pantalla-responder', 'pantalla-exito', 'pantalla-resultado'];
+            pantallas.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    if (id === idMostrar) {
+                        el.classList.remove('hidden');
+                    } else {
+                        el.classList.add('hidden');
+                    }
+                }
+            });
+        }
+
+        async function inicializar() {
+            if (modoResponder) {
+                cambiarPantalla('pantalla-responder');
+                cargarPreguntaParaResponder();
+            } else {
+                cambiarPantalla('pantalla-crear');
+            }
+        }
+
+        async function cargarPreguntaParaResponder() {
+            try {
+                const res = await fetch(`${ORIGEN}/api/pregunta?t=${Date.now()}`);
+                const data = await res.json();
+                if (res.ok && data.pregunta) {
+                    document.getElementById('pregunta-texto').innerText = data.pregunta;
+                } else {
+                    document.getElementById('pregunta-texto').innerText = "No hay ninguna pregunta activa en este momento.";
+                }
+            } catch (e) {
+                document.getElementById('pregunta-texto').innerText = "Error al conectar con el servidor.";
+            }
+        }
+
+        async function crearOReemplazarPregunta() {
+            const input = document.getElementById('input-pregunta');
+            const pregunta = input ? input.value.trim() : '';
+            
+            if (!pregunta) {
+                alert('Por favor, escribe una pregunta antes de continuar.');
+                return;
+            }
+
+            const btn = document.getElementById('btn-crear');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "Guardando...";
+            }
+
+            try {
+                const res = await fetch(`${ORIGEN}/api/pregunta`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ accion: 'crear', pregunta: pregunta })
+                });
+
+                const text = await res.text();
+                let data = {};
+                try { data = JSON.parse(text); } catch(err) {}
+
+                if (res.ok) {
+                    const enlace = `${ORIGEN}${window.location.pathname}?responder=true`;
+                    const boxEnlace = document.getElementById('texto-enlace');
+                    if (boxEnlace) boxEnlace.innerText = enlace;
+                    cambiarPantalla('pantalla-enlace');
+                } else {
+                    alert('Error al guardar: ' + (data.error || text || 'Error desconocido en el servidor.'));
+                }
+            } catch (e) {
+                alert('Error de conexión al servidor: ' + e.message);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = "Crear / Actualizar Pregunta";
+                }
+            }
+        }
+
+        async function verEstado() {
+            const btn = document.getElementById('btn-ver-estado');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "Consultando...";
+            }
+
+            try {
+                const res = await fetch(`${ORIGEN}/api/pregunta?t=${Date.now()}`);
+                const text = await res.text();
+                let contenido = {};
+                try { contenido = JSON.parse(text); } catch(err) {}
+
+                if (!res.ok || !contenido.pregunta) {
+                    alert("Aún no se ha creado ninguna pregunta o el servidor devolvió una respuesta vacía.");
+                    return;
+                }
+
+                cambiarPantalla('pantalla-resultado');
+
+                const pMostrada = document.getElementById('pregunta-mostrada');
+                if (pMostrada) {
+                    pMostrada.innerHTML = `<strong>Tu pregunta:</strong> ${contenido.pregunta}`;
+                }
+                
+                const cajaResp = document.getElementById('caja-respuesta');
+                if (cajaResp) {
+                    if (contenido.respondido) {
+                        cajaResp.innerHTML = `<strong>Respuesta recibida:</strong> ${contenido.respuesta}`;
+                    } else {
+                        const enlaceResponder = `${ORIGEN}${window.location.pathname}?responder=true`;
+                        cajaResp.innerHTML = `<em>Aún no hay respuesta... Comparte tu enlace:<br><a href="${enlaceResponder}" target="_blank" style="color: #38bdf8;">${enlaceResponder}</a></em>`;
+                    }
+                }
+            } catch (e) {
+                alert("Error al obtener el estado: " + e.message);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = "Ver respuesta actual";
+                }
+            }
+        }
+
+        async function enviarRespuesta() {
+            const input = document.getElementById('input-respuesta');
+            const respuesta = input ? input.value.trim() : '';
+            if (!respuesta) return alert('Escribe una respuesta.');
+
+            const btn = document.getElementById('btn-enviar-resp');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "Enviando...";
+            }
+
+            try {
+                const res = await fetch(`${ORIGEN}/api/pregunta`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ accion: 'responder', respuesta: respuesta })
+                });
+
+                const text = await res.text();
+                let data = {};
+                try { data = JSON.parse(text); } catch(err) {}
+
+                if (res.ok) {
+                    cambiarPantalla('pantalla-exito');
+                } else {
+                    alert('Error al responder: ' + (data.error || text || 'No se pudo guardar.'));
+                }
+            } catch (e) {
+                alert('Error de conexión: ' + e.message);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = "Enviar respuesta";
+                }
+            }
+        }
+
+        function irACrearNueva() {
+            cambiarPantalla('pantalla-crear');
+        }
+
+        document.addEventListener('DOMContentLoaded', inicializar);
+    </script>
+</body>
+</html>
